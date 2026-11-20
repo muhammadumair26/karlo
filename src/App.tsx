@@ -280,10 +280,22 @@ function Home({ userId, email }: { userId: string; email: string }) {
 
   if (!me || !ready) {
     return (
-      <div className="auth-page">
-        <div className="loading-logo">
-          <img src={`${import.meta.env.BASE_URL}karlo-icon.png`} alt="" />
-          {error ? <div className="auth-error">{error}</div> : <span>Loading your workspace…</span>}
+      <div className="auth-page splash">
+        <div className="splash-box" role="status" aria-live="polite">
+          <div className="splash-tile">
+            <img src={`${import.meta.env.BASE_URL}karlo-icon.png`} alt="" />
+          </div>
+          <span className="splash-word">Karlo</span>
+          {error ? (
+            <div className="auth-error">{error}</div>
+          ) : (
+            <>
+              <div className="splash-bar" aria-hidden>
+                <span />
+              </div>
+              <span className="splash-text">Loading your workspace…</span>
+            </>
+          )}
         </div>
       </div>
     );
