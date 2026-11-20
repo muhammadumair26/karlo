@@ -106,15 +106,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 /// Holds Karlo's screen and keeps it clear of side cut-outs (e.g. the iPhone Duo's status-pill column),
-/// the way Safari lays out pages. Ordinary iPhones in portrait have no side insets, so nothing changes there.
+/// the way the phone's own apps do: a black strip for the clock and camera, and the app's corners rounded
+/// on the side next to it. Ordinary iPhones in portrait have no side insets, so nothing changes there.
 class KarloContainerViewController: UIViewController {
     private let karlo = KarloViewController()
+    private static let cornerRadius: CGFloat = 28
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground // follows the phone: white in light mode, black in dark mode
+        view.backgroundColor = .black // blends with the phone's frame and camera
         addChild(karlo)
         view.addSubview(karlo.view)
+        karlo.view.layer.cornerCurve = .continuous
         karlo.didMove(toParent: self)
     }
 
@@ -122,13 +125,19 @@ class KarloContainerViewController: UIViewController {
         super.viewDidLayoutSubviews()
         let inset = view.safeAreaInsets
         karlo.view.frame = view.bounds.inset(by: UIEdgeInsets(top: 0, left: inset.left, bottom: 0, right: inset.right))
+        // Round only the corners that face the strip.
+        var corners: CACornerMask = []
+        if inset.right > 0 { corners.formUnion([.layerMaxXMinYCorner, .layerMaxXMaxYCorner]) }
+        if inset.left > 0 { corners.formUnion([.layerMinXMinYCorner, .layerMinXMaxYCorner]) }
+        karlo.view.layer.maskedCorners = corners
+        karlo.view.layer.cornerRadius = corners.isEmpty ? 0 : Self.cornerRadius
+        karlo.view.layer.masksToBounds = !corners.isEmpty
     }
 
     private var hasSideStrip: Bool { view.safeAreaInsets.left > 0 || view.safeAreaInsets.right > 0 }
-    // With a side strip (iPhone Duo) the clock sits on the strip, so it follows the phone's light/dark mode too;
-    // otherwise the page decides.
+    // With a side strip the clock sits on the black strip, so keep it white; otherwise the page decides.
     override var childForStatusBarStyle: UIViewController? { hasSideStrip ? nil : karlo }
-    override var preferredStatusBarStyle: UIStatusBarStyle { .default }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         setNeedsStatusBarAppearanceUpdate()
