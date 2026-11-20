@@ -104,3 +104,26 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, continue: userActivity, restorationHandler: { _ in })
     }
 }
+
+/// Holds Karlo's screen and keeps it clear of side cut-outs (e.g. the iPhone Duo's status-pill column),
+/// the way Safari lays out pages. Ordinary iPhones in portrait have no side insets, so nothing changes there.
+class KarloContainerViewController: UIViewController {
+    private let karlo = KarloViewController()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = UIColor(red: 0x1d / 255.0, green: 0x4e / 255.0, blue: 0xd8 / 255.0, alpha: 1)
+        addChild(karlo)
+        view.addSubview(karlo.view)
+        karlo.didMove(toParent: self)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let inset = view.safeAreaInsets
+        karlo.view.frame = view.bounds.inset(by: UIEdgeInsets(top: 0, left: inset.left, bottom: 0, right: inset.right))
+    }
+
+    override var childForStatusBarStyle: UIViewController? { karlo }
+    override var childForStatusBarHidden: UIViewController? { karlo }
+}
