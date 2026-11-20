@@ -1837,3 +1837,6 @@ body:has(.app-banner) .va-fab { bottom: 148px; }
   .cw-top { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
 }
 .native-app .topbar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
+/* Phone apps (any width, e.g. an unfolded iPhone Duo): close button top-left as well. */
+.native-app .cw-top .cw-close { order: -1; margin: 0 2px 0 -6px; }
+.native-app .cw-top { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
