@@ -21,6 +21,7 @@ import {
   Trash2,
   Upload,
   UserPlus,
+  Wallet,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -44,12 +45,14 @@ import { KanbanView } from './KanbanView';
 import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
+import { ExpensesView } from './ExpensesView';
+import { useExpenses } from '../lib/expenses';
 import { ActivityFeed } from './ActivityFeed';
 import { MemberCard, type MemberCardTarget } from './MemberCard';
 import { handleOf } from '../lib/notify';
 import { Avatar, download, Menu, Modal } from './ui';
 
-type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map';
+type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map' | 'expenses';
 
 const VIEWS: { id: View; label: string; Icon: typeof Kanban }[] = [
   { id: 'board', label: 'Board', Icon: Kanban },
@@ -58,6 +61,7 @@ const VIEWS: { id: View; label: string; Icon: typeof Kanban }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: Gauge },
   { id: 'timeline', label: 'Timeline', Icon: GanttChart },
   { id: 'map', label: 'Map', Icon: MapPin },
+  { id: 'expenses', label: 'Expenses', Icon: Wallet },
 ];
 
 const STATUS_TEXT: Record<SyncStatus, string> = {
@@ -198,6 +202,12 @@ export function BoardPage({
   }, [meta.id]);
 
   const peopleMap = useMemo(() => new Map(people.map((p) => [p.user_id, p])), [people]);
+  // Project expenses: only the partners get data back; the owner may set them up.
+  const expenseState = useExpenses(meta.id);
+  const isOwner = meta.role === 'owner';
+  const canSeeExpenses = expenseState.allowed || isOwner;
+  const views = VIEWS.filter((v) => v.id !== 'expenses' || canSeeExpenses);
+  const shownView: View = view === 'expenses' && expenseState.loaded && !canSeeExpenses ? 'board' : view;
   const setViewSaved = (v: View) => {
     setView(v);
     try {
@@ -263,7 +273,7 @@ export function BoardPage({
 
         <span className="menu-anchor hide-phone">
           {(() => {
-            const cur = VIEWS.find((v) => v.id === view) ?? VIEWS[0];
+            const cur = views.find((v) => v.id === shownView) ?? views[0];
             return (
               <button className="btn translucent views-btn" onClick={() => setViewsOpen(!viewsOpen)} title="Views">
                 <cur.Icon size={16} /> {cur.label} <ChevronDown size={14} />
@@ -272,8 +282,8 @@ export function BoardPage({
           })()}
           <Menu open={viewsOpen} onClose={() => setViewsOpen(false)} align="left">
             <div className="menu-title">Views</div>
-            {VIEWS.map((v) => (
-              <button key={v.id} className={view === v.id ? 'menu-on' : ''} onClick={() => (setViewsOpen(false), setViewSaved(v.id))}>
+            {views.map((v) => (
+              <button key={v.id} className={shownView === v.id ? 'menu-on' : ''} onClick={() => (setViewsOpen(false), setViewSaved(v.id))}>
                 <v.Icon size={17} /> {v.label}
               </button>
             ))}
@@ -378,7 +388,7 @@ export function BoardPage({
       <nav className="phone-bar" aria-label="Board actions">
         <span className="menu-anchor">
           {(() => {
-            const cur = VIEWS.find((v) => v.id === view) ?? VIEWS[0];
+            const cur = views.find((v) => v.id === shownView) ?? views[0];
             return (
               <button className={viewsOpen ? 'on' : ''} onClick={() => setViewsOpen(!viewsOpen)}>
                 <cur.Icon size={20} />
@@ -390,8 +400,8 @@ export function BoardPage({
           })()}
           <Menu open={viewsOpen} onClose={() => setViewsOpen(false)} align="up">
             <div className="menu-title">Views</div>
-            {VIEWS.map((v) => (
-              <button key={v.id} className={view === v.id ? 'menu-on' : ''} onClick={() => (setViewsOpen(false), setViewSaved(v.id))}>
+            {views.map((v) => (
+              <button key={v.id} className={shownView === v.id ? 'menu-on' : ''} onClick={() => (setViewsOpen(false), setViewSaved(v.id))}>
                 <v.Icon size={17} /> {v.label}
               </button>
             ))}
@@ -465,13 +475,13 @@ export function BoardPage({
         <div className="empty">
           <p>Loading board…</p>
         </div>
-      ) : view === 'board' ? (
+      ) : shownView === 'board' ? (
         <KanbanView unreadByCard={unreadByCard} boardId={meta.id} data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
-      ) : view === 'table' ? (
+      ) : shownView === 'table' ? (
         <TableView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
-      ) : view === 'calendar' ? (
+      ) : shownView === 'calendar' ? (
         <CalendarView data={data} filters={filters} meId={me.id} onOpenCard={setOpenCardId} />
-      ) : view === 'dashboard' ? (
+      ) : shownView === 'dashboard' ? (
         <DashboardView
           data={data}
           dispatch={dispatch}
@@ -484,8 +494,10 @@ export function BoardPage({
             setShowFilters(true);
           }}
         />
-      ) : view === 'timeline' ? (
+      ) : shownView === 'timeline' ? (
         <TimelineView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+      ) : shownView === 'expenses' ? (
+        <ExpensesView boardId={meta.id} boardTitle={meta.title} isOwner={isOwner} state={expenseState} data={data} people={peopleMap} me={me} onOpenCard={setOpenCardId} />
       ) : (
         <MapView data={data} filters={filters} meId={me.id} onOpenCard={setOpenCardId} />
       )}
@@ -494,6 +506,7 @@ export function BoardPage({
         <CardModal
           key={openCard.id}
           isAdmin={admin}
+          expenseState={expenseState.allowed ? expenseState : undefined}
           onPersonClick={(person, el) => openMember(person, el)}
           boardId={meta.id}
           boardTitle={meta.title}

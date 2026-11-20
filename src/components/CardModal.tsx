@@ -1,5 +1,6 @@
 import {
   AlignLeft,
+  Wallet,
   LogOut,
   Archive,
   CheckSquare,
@@ -28,6 +29,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import type { BoardActionBody } from '../lib/board';
 import { cardListId, uid } from '../lib/board';
 import { dueStatus, formatDate } from '../lib/filters';
+import { CardExpenses, type ExpensesState } from './ExpensesView';
 import type { Attachment, BoardData, Card, CardLocation, Me, Person, Priority } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
 import { extOf, formatBytes, isImage, fileUrl, MAX_FILE_BYTES, pathsOf, uploadAttachment, useSignedUrls } from '../lib/files';
@@ -77,6 +79,7 @@ function Popover({ title, onClose, children }: { title: string; onClose: () => v
 }
 
 export function CardModal({
+  expenseState,
   isAdmin = false,
   onPersonClick,
   boardId,
@@ -92,6 +95,8 @@ export function CardModal({
 }: {
   /** Board admin/owner: can manage owners and delete any card. */
   isAdmin?: boolean;
+  /** Project expenses (only filled for partners). */
+  expenseState?: ExpensesState;
   /** Clicking a member's avatar shows their member card. */
   onPersonClick?: (person: Person, el: HTMLElement) => void;
   boardId: string;
@@ -111,6 +116,7 @@ export function CardModal({
   const [desc, setDesc] = useState(card.description);
   const [pop, setPop] = useState<Pop>(null);
   const [menu, setMenu] = useState(false);
+  const [addingExpense, setAddingExpense] = useState(false);
   const [newItem, setNewItem] = useState('');
   const [link, setLink] = useState({ name: '', url: '' });
   const [placeQ, setPlaceQ] = useState('');
@@ -836,6 +842,11 @@ export function CardModal({
               <button className={`cw-btn ${pop === 'attachment' ? 'on' : ''}`} onClick={() => toggle('attachment')}>
                 <Paperclip size={16} /> Attachment
               </button>
+              {expenseState?.settings && (
+                <button className="cw-btn" onClick={() => setAddingExpense(true)} title="Record money spent on this card (partners only)">
+                  <Wallet size={16} /> Expense
+                </button>
+              )}
               {popover}
             </div>
           )}
@@ -1127,6 +1138,19 @@ export function CardModal({
                 );
               })()}
             </section>
+          )}
+
+          {expenseState && (
+            <CardExpenses
+              boardId={boardId}
+              cardId={card.id}
+              state={expenseState}
+              data={data}
+              people={peopleById}
+              me={me}
+              adding={addingExpense}
+              onAddingChange={setAddingExpense}
+            />
           )}
 
           {/* checklist */}
