@@ -19,6 +19,7 @@ import { starterBoard, uid } from './lib/board';
 import { karloExport } from './lib/importers';
 import { startPresence } from './lib/presence';
 import { loadPrefs } from './lib/prefs';
+import { isNativeApp } from './lib/platform';
 import { registerServiceWorker } from './lib/push';
 import { parseCardLink } from './lib/recent';
 import type { BoardMeta, Me, Workspace } from './lib/types';
@@ -355,6 +356,11 @@ function Home({ userId, email }: { userId: string; email: string }) {
             <button onClick={() => (setProfileOpen(false), setCalSync(true))}>Sync with Google Calendar</button>
             <button onClick={() => (setProfileOpen(false), setReminders(true))}>Reminders & daily digest</button>
             <button onClick={() => (setProfileOpen(false), setSecurity(true))}>Security & sign-in</button>
+            {!isNativeApp && (
+              <a className="menu-link" href={`${import.meta.env.BASE_URL}download/`} target="_blank" rel="noopener" onClick={() => setProfileOpen(false)}>
+                Get the Android app
+              </a>
+            )}
             <button onClick={() => supabase?.auth.signOut()}>Sign out</button>
           </Menu>
         </span>

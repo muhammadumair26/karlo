@@ -1633,3 +1633,4 @@ td.ex-in strong { color: #216e4e; }
   .ex-stats .stat-label { font-size: 11px; line-height: 1.3; }
   .ex-stats .ex-meter { margin-top: 5px; height: 4px; }
 }
+.menu a.menu-link { display: block; padding: 8px 12px; color: inherit; text-decoration: none; font-size: 14px; } .menu a.menu-link:hover { background: #f1f2f4; }
