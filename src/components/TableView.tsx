@@ -31,7 +31,8 @@ export function TableView({
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'list', dir: 1 });
   const [adding, setAdding] = useState(false);
   const activeLists = data.listOrder.filter((id) => !data.lists[id].archived);
-  const [newCard, setNewCard] = useState({ title: '', listId: activeLists[0] ?? '' });
+  const [newCard, setNewCard] = useState({ title: '', listId: activeLists[0] ?? '', due: '' });
+  const [dueMissing, setDueMissing] = useState(false);
   const labels = new Map(data.labels.map((l) => [l.id, l]));
   const listIndex = new Map(data.listOrder.map((id, i) => [id, i]));
 
@@ -82,8 +83,10 @@ export function TableView({
   const addCard = () => {
     const t = newCard.title.trim();
     if (!t || !newCard.listId) return;
-    dispatch({ type: 'ADD_CARD', listId: newCard.listId, cardId: uid(), title: t });
+    if (!newCard.due) return setDueMissing(true);
+    dispatch({ type: 'ADD_CARD', listId: newCard.listId, cardId: uid(), title: t, due: newCard.due });
     setNewCard({ ...newCard, title: '' });
+    setDueMissing(false);
   };
 
   return (
@@ -225,7 +228,17 @@ export function TableView({
                         </option>
                       ))}
                     </select>
+                    <input
+                      type="date"
+                      required
+                      className={dueMissing && !newCard.due ? 'tv-due-missing' : ''}
+                      value={newCard.due}
+                      onChange={(e) => (setNewCard({ ...newCard, due: e.target.value }), setDueMissing(false))}
+                      aria-label="Due date (required)"
+                      title="Due date (required)"
+                    />
                     <button className="btn primary">Add card</button>
+                    {dueMissing && !newCard.due && <span className="acf-hint">Pick a due date.</span>}
                     <button type="button" className="btn ghost" onClick={() => setAdding(false)}>
                       Cancel
                     </button>

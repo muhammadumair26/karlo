@@ -7,6 +7,7 @@ import { hasFilters, matches } from '../lib/filters';
 import type { BoardData, Card, Label, Person } from '../lib/types';
 import { useSignedUrls } from '../lib/files';
 import { CardItem } from './CardItem';
+import { AddCardForm } from './AddCardForm';
 import { AddForm, EditableText } from './Editable';
 import { Menu } from './ui';
 import { askConfirm } from './dialog';
@@ -254,13 +255,7 @@ export function KanbanView({
             </div>
 
             {editable && (
-              <AddForm
-                label="Add a card"
-                placeholder="Enter a title for this card…"
-                submitLabel="Add card"
-                multiline
-                onAdd={(title) => dispatch({ type: 'ADD_CARD', listId: list.id, cardId: uid(), title })}
-              />
+              <AddCardForm onAdd={(title, due) => dispatch({ type: 'ADD_CARD', listId: list.id, cardId: uid(), title, due })} />
             )}
           </div>
         );

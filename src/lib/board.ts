@@ -116,7 +116,7 @@ export type BoardActionBody =
   | { type: 'ARCHIVE_LIST'; listId: string; archived: boolean }
   | { type: 'DELETE_LIST'; listId: string }
   | { type: 'MOVE_LIST'; listId: string; toIndex: number }
-  | { type: 'ADD_CARD'; listId: string; cardId: string; title: string }
+  | { type: 'ADD_CARD'; listId: string; cardId: string; title: string; due?: string | null }
   | { type: 'UPDATE_CARD'; cardId: string; patch: Partial<Card>; note?: string }
   | { type: 'MOVE_CARD'; cardId: string; toListId: string; toIndex: number }
   | { type: 'DELETE_CARD'; cardId: string }
@@ -192,7 +192,7 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     case 'ADD_CARD': {
       const l = d.lists[a.listId];
       if (!l || d.cards[a.cardId]) return d;
-      const c = newCard(a.cardId, a.title, a.meta.by.id, a.meta.at);
+      const c = newCard(a.cardId, a.title, a.meta.by.id, a.meta.at, a.due ? { due: a.due } : {});
       return {
         ...d,
         cards: { ...d.cards, [c.id]: c },

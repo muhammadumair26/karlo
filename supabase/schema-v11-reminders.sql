@@ -35,7 +35,7 @@ create table if not exists public.reminder_log (
 );
 alter table public.reminder_log enable row level security; -- no policies: only the job writes it
 
--- The job. Cards count when the person owns or is a member of them, can still open the board,
+-- The job. Cards count for the responsible person (members, else the owner) who can still open the board,
 -- and the card is open (not archived, not complete, list not archived).
 create or replace function public.run_reminders() returns int
 language plpgsql security definer set search_path = public as $$
@@ -91,7 +91,10 @@ begin
          and coalesce((card.value->>'completed')::boolean, false) = false
          and coalesce((card.value->>'dueDone')::boolean, false) = false
          and (card.value->>'due') ~ '^\d{4}-\d{2}-\d{2}$'
-         and (coalesce(card.value->'assignees', '[]'::jsonb) ? p.id::text or coalesce(card.value->'owners', '[]'::jsonb) ? p.id::text)
+         -- Responsible person: the card's members; when it has none, its owner.
+         and case when jsonb_array_length(coalesce(card.value->'assignees', '[]'::jsonb)) > 0
+                  then card.value->'assignees' ? p.id::text
+                  else coalesce(card.value->'owners', '[]'::jsonb) ? p.id::text end
     loop
       days := c.due - today;
       if days = 0 then due_today := due_today + 1; end if;
