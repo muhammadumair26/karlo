@@ -21,6 +21,7 @@ function loadCollapsed(boardId: string): string[] {
 }
 
 export function KanbanView({
+  unreadByCard,
   boardId,
   data,
   dispatch,
@@ -30,6 +31,7 @@ export function KanbanView({
   people,
   onOpenCard,
 }: {
+  unreadByCard?: Map<string, string[]>;
   boardId: string;
   data: BoardData;
   dispatch: (a: BoardActionBody) => void;
@@ -201,6 +203,7 @@ export function KanbanView({
                   <div key={card.id}>
                     {target === realIndex && <div className="card-placeholder" />}
                     <CardItem
+                      unread={unreadByCard?.get(card.id)?.length ?? 0}
                       card={card}
                       coverUrl={coverPath(card) ? coverUrls.get(coverPath(card)!) : undefined}
                       labels={labels}

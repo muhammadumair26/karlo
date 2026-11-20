@@ -1033,3 +1033,5 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
   .tile-step2 { grid-template-columns: 1fr; }
   .tile-rail { flex-direction: row; justify-content: center; }
 }
+/* Unread notifications for me on this card (Trello-style red bell) */
+.badge.notif-badge { background: #c9372c; color: #fff; border-radius: 4px; padding: 2px 6px; font-weight: 600; }

@@ -69,6 +69,16 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
     };
   }, [userId, reload]);
 
+  // Share with the open board (red bell badges on cards) and reload when asked.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('karlo:notifs', { detail: items }));
+  }, [items]);
+  useEffect(() => {
+    const again = () => void reload();
+    window.addEventListener('karlo:notifs-refresh', again);
+    return () => window.removeEventListener('karlo:notifs-refresh', again);
+  }, [reload]);
+
   const unread = items.filter((n) => !n.read_at).length;
   useEffect(() => {
     document.title = unread ? `(${unread}) Karlo` : 'Karlo';

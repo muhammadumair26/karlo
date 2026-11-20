@@ -29,7 +29,7 @@ import { hasFilters, NO_FILTERS } from '../lib/filters';
 import type { BoardActionBody } from '../lib/board';
 import { boardToCSV, karloExport } from '../lib/importers';
 import { deleteFiles, pathsOf } from '../lib/files';
-import { notificationsFor, sendNotifications } from '../lib/notify';
+import { markRead, notificationsFor, sendNotifications, type NotificationRow } from '../lib/notify';
 import type { BoardMeta, Me, Person } from '../lib/types';
 import { BACKGROUND_PHOTOS, DUBAI_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
 import { useBoardSync, type SyncStatus } from '../lib/useBoardSync';
@@ -137,6 +137,8 @@ export function BoardPage({
   });
   const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests'>(null);
   const [memberTarget, setMemberTarget] = useState<MemberCardTarget | null>(null);
+  // My unread notifications on this board, per card (red bell badge on the card, like Trello).
+  const [unreadByCard, setUnreadByCard] = useState<Map<string, string[]>>(new Map());
   const [profileOf, setProfileOf] = useState<Person | null>(null);
   const [activityBy, setActivityBy] = useState<string | null>(null);
   const openMember = (person: Person, el: HTMLElement) => setMemberTarget({ person, rect: el.getBoundingClientRect() });
@@ -161,6 +163,29 @@ export function BoardPage({
       window.clearInterval(t);
     };
   }, [loadPeople]);
+  useEffect(() => {
+    const onNotifs = (e: Event) => {
+      const rows = (e as CustomEvent<NotificationRow[]>).detail ?? [];
+      const m = new Map<string, string[]>();
+      for (const n of rows) if (n.board_id === meta.id && n.card_id && !n.read_at) m.set(n.card_id, [...(m.get(n.card_id) ?? []), n.id]);
+      setUnreadByCard(m);
+    };
+    window.addEventListener('karlo:notifs', onNotifs);
+    window.dispatchEvent(new CustomEvent('karlo:notifs-refresh'));
+    return () => window.removeEventListener('karlo:notifs', onNotifs);
+  }, [meta.id]);
+  // Opening a card reads its notifications.
+  useEffect(() => {
+    const ids = openCardId ? unreadByCard.get(openCardId) : undefined;
+    if (!ids?.length) return;
+    setUnreadByCard((m) => {
+      const next = new Map(m);
+      next.delete(openCardId!);
+      return next;
+    });
+    void markRead(ids).then(() => window.dispatchEvent(new CustomEvent('karlo:notifs-refresh')));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCardId, unreadByCard]);
   useEffect(() => {
     if (openCardRequest && data?.cards[openCardRequest.cardId]) setOpenCardId(openCardRequest.cardId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -401,7 +426,7 @@ export function BoardPage({
           <p>Loading board…</p>
         </div>
       ) : view === 'board' ? (
-        <KanbanView boardId={meta.id} data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+        <KanbanView unreadByCard={unreadByCard} boardId={meta.id} data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : view === 'table' ? (
         <TableView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : view === 'calendar' ? (

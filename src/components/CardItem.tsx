@@ -1,10 +1,11 @@
-import { AlignLeft, CheckSquare, Clock, Flag, MapPin, MessageSquare, Paperclip, Pencil } from 'lucide-react';
+import { AlignLeft, Bell, CheckSquare, Clock, Flag, MapPin, MessageSquare, Paperclip, Pencil } from 'lucide-react';
 import { dueStatus, formatDate } from '../lib/filters';
 import type { Card, Label, Person } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
 import { Avatar } from './ui';
 
 export function CardItem({
+  unread = 0,
   coverUrl,
   card,
   labels,
@@ -17,6 +18,8 @@ export function CardItem({
   onDragEnd,
   onDragOver,
 }: {
+  /** My unread notifications about this card. */
+  unread?: number;
   coverUrl?: string;
   card: Card;
   labels: Map<string, Label>;
@@ -39,7 +42,7 @@ export function CardItem({
     ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true, src: null })),
   ];
   const hasBadges =
-    card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length || card.location;
+    unread > 0 || card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length || card.location;
 
   return (
     <div
@@ -99,6 +102,11 @@ export function CardItem({
 
       {hasBadges ? (
         <div className="card-badges">
+          {unread > 0 && (
+            <span className="badge notif-badge" title={`${unread} unread notification${unread === 1 ? '' : 's'} for you`}>
+              <Bell size={13} /> {unread}
+            </span>
+          )}
           {card.priority !== 'none' && prio && (
             <span className="badge prio" style={{ color: prio.color }} title={`Priority: ${prio.label}`}>
               <Flag size={13} /> {prio.label}
