@@ -1,4 +1,5 @@
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Fingerprint } from 'lucide-react';
+import { friendlyAuthError, passkeysSupported, signInWithPasskey } from '../lib/security';
 import { useState } from 'react';
 import { REMEMBER_KEY, rememberMe, supabase } from '../supabase';
 
@@ -157,6 +158,37 @@ export function AuthScreen() {
         <button className="btn primary" type="submit" disabled={busy}>
           {busy ? 'Please wait…' : SUBMIT[mode]}
         </button>
+        {mode === 'signin' && passkeysSupported() && (
+          <>
+            <div className="auth-or">
+              <span>or</span>
+            </div>
+            <button
+              type="button"
+              className="btn passkey-btn"
+              disabled={busy}
+              onClick={async () => {
+                setError(null);
+                setInfo(null);
+                try {
+                  localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0');
+                } catch {
+                  /* ignore */
+                }
+                setBusy(true);
+                try {
+                  await signInWithPasskey();
+                } catch (e) {
+                  setError(friendlyAuthError(e));
+                }
+                setBusy(false);
+              }}
+            >
+              <Fingerprint size={18} /> Sign in with passkey
+              <span className="passkey-sub">Face ID · fingerprint · device PIN</span>
+            </button>
+          </>
+        )}
         {mode === 'signin' && (
           <button type="button" className="auth-switch" onClick={() => switchTo('forgot')}>
             Forgot password?

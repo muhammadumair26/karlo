@@ -11,6 +11,8 @@ import { Avatar, download, Menu, Modal } from './components/ui';
 import { ProfileModal } from './components/ProfileModal';
 import { CalendarSyncModal } from './components/CalendarSync';
 import { ReminderSettingsModal } from './components/ReminderSettings';
+import { SecondStepScreen, SecurityModal } from './components/SecuritySettings';
+import { needsSecondStep } from './lib/security';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import * as api from './lib/api';
 import { starterBoard, uid } from './lib/board';
@@ -27,6 +29,21 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(openedFromSetPasswordLink);
+  // Two-step sign-in: after the password, ask for the authenticator code (null = still checking).
+  const [secondStep, setSecondStep] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!session) {
+      setSecondStep(null);
+      return;
+    }
+    let live = true;
+    needsSecondStep()
+      .then((v) => live && setSecondStep(v))
+      .catch(() => live && setSecondStep(false));
+    return () => {
+      live = false;
+    };
+  }, [session?.user.id, session?.access_token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!supabase) {
@@ -57,6 +74,8 @@ export default function App() {
   if (!authReady) return <div className="auth-page" />;
   if (!session) return <AuthScreen />;
   if (needsPassword) return <SetPasswordScreen email={session.user.email ?? ''} onDone={() => setNeedsPassword(false)} />;
+  if (secondStep === null) return <div className="auth-page" />;
+  if (secondStep) return <SecondStepScreen onDone={() => setSecondStep(false)} />;
   return <Home key={session.user.id} userId={session.user.id} email={session.user.email ?? ''} />;
 }
 
@@ -85,6 +104,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [calSync, setCalSync] = useState(false);
   const [reminders, setReminders] = useState(false);
+  const [security, setSecurity] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
   const [starred, setStarred] = useState<string[]>(() => {
     try {
@@ -329,6 +349,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
             <button onClick={() => (setProfileOpen(false), setProfileModal(true))}>Edit profile & password</button>
             <button onClick={() => (setProfileOpen(false), setCalSync(true))}>Sync with Google Calendar</button>
             <button onClick={() => (setProfileOpen(false), setReminders(true))}>Reminders & daily digest</button>
+            <button onClick={() => (setProfileOpen(false), setSecurity(true))}>Security & sign-in</button>
             <button onClick={() => supabase?.auth.signOut()}>Sign out</button>
           </Menu>
         </span>
@@ -423,6 +444,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       )}
       {calSync && <CalendarSyncModal onClose={() => setCalSync(false)} />}
       {reminders && <ReminderSettingsModal onClose={() => setReminders(false)} />}
+      {security && <SecurityModal onClose={() => setSecurity(false)} />}
       {profileModal && (
         <ProfileModal
           me={me}
