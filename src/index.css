@@ -1938,3 +1938,60 @@ body:has(.app-banner) .run-timer { bottom: 152px; }
   .tm-chart { height: 160px; gap: 6px; }
   .tm-val { font-size: 10px; }
 }
+
+/* ======================= Side-rail layout (iPhone Duo outer screen) =======================
+   The phone app adds .side-rail and --rail (the clock/camera column's width) when the screen has
+   a one-sided strip. The page then fills the whole screen and its buttons live in that column as
+   round floating buttons, instead of the top bar and bottom bar. Nothing else ever gets this class. */
+html.side-rail { --rail-top: 150px; --rail-btn: 50px; }
+.side-rail body::before { content: ''; position: fixed; top: -40px; right: -30px; width: calc(var(--rail) + 70px); height: calc(var(--rail-top) + 60px); z-index: 29; pointer-events: none; background: radial-gradient(closest-side, rgba(9, 14, 30, .5), rgba(9, 14, 30, 0)); }
+.side-rail .board-header, .side-rail .filter-bar { padding-right: calc(var(--rail) + 6px) !important; }
+/* lists slide under the floating buttons; the last one can still scroll fully clear of them */
+.side-rail .board-canvas::after { content: ''; flex: 0 0 calc(var(--rail) - 10px); }
+.side-rail .tv-wrap, .side-rail .calendar, .side-rail .dashboard, .side-rail .timeline, .side-rail .mapview { margin-right: calc(var(--rail) + 4px); }
+/* top bar → column of round buttons under the clock */
+.side-rail .topbar { position: fixed; z-index: 30; top: var(--rail-top); right: 0; width: var(--rail); flex-direction: column; align-items: center; gap: 10px; padding: 0 !important; background: none !important; border: none; box-shadow: none; backdrop-filter: none !important; }
+.side-rail .topbar .brand, .side-rail .topbar .header-spacer, .side-rail .topbar::before, .side-rail .topbar::after { display: none; }
+.side-rail .topbar > .icon-btn, .side-rail .topbar .profile-btn, .side-rail .topbar .bell-btn, .side-rail .topbar .searchbar {
+  width: var(--rail-btn); height: var(--rail-btn); flex: none; border-radius: 50%; display: grid; place-items: center; padding: 0;
+  background: rgba(255, 255, 255, .78); color: #172b4d; backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  box-shadow: 0 4px 14px rgba(9, 30, 66, .28), inset 0 0 0 1px rgba(255, 255, 255, .6); border: none; font-size: 20px;
+}
+.side-rail .topbar .profile-btn { background: none; box-shadow: 0 4px 14px rgba(9, 30, 66, .28); }
+.side-rail .topbar .searchbar { position: relative; margin: 0; max-width: none; flex: none; }
+.side-rail .topbar .searchbar input { width: 100%; height: 100%; padding: 0; border-radius: 50%; color: transparent; }
+.side-rail .topbar .searchbar .search-icon { left: 50% !important; right: auto !important; transform: translate(-50%, -50%); color: #172b4d; }
+.side-rail .topbar .searchbar:focus-within, .side-rail .topbar .searchbar.open { position: fixed; top: 10px; left: 10px; right: calc(var(--rail) + 10px); width: auto; height: 44px; border-radius: 12px; display: block; }
+.side-rail .topbar .searchbar:focus-within input, .side-rail .topbar .searchbar.open input { border-radius: 12px; padding-left: 36px; color: #172b4d; }
+.side-rail .topbar .searchbar:focus-within .search-icon, .side-rail .topbar .searchbar.open .search-icon { left: 12px !important; transform: translateY(-50%); }
+/* bottom bar → one glass capsule at the bottom of the column, above the mic */
+.side-rail .phone-bar {
+  display: flex; position: fixed; z-index: 30; left: auto; top: auto; right: calc((var(--rail) - var(--rail-btn)) / 2); bottom: calc(14px + 54px + 12px);
+  width: var(--rail-btn); flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border: none; border-radius: 999px;
+  background: rgba(255, 255, 255, .78); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); box-shadow: 0 4px 14px rgba(9, 30, 66, .28);
+}
+.side-rail .phone-bar > button, .side-rail .phone-bar > .menu-anchor > button { min-width: 0; width: 42px; height: 42px; padding: 0; border-radius: 50%; display: grid; place-items: center; color: #172b4d; }
+.side-rail .phone-bar button > span { display: none !important; }
+.side-rail .phone-bar button.on { background: #0c66e4; color: #fff; }
+.side-rail .va-fab { right: calc((var(--rail) - 50px) / 2); bottom: 14px; width: 50px; height: 50px; }
+.side-rail .run-timer { bottom: 14px; left: 12px; max-width: calc(100vw - var(--rail) - 24px); }
+/* no bottom bar to leave room for */
+.side-rail .board-canvas, .side-rail .tv-wrap, .side-rail .calendar, .side-rail .dashboard, .side-rail .timeline, .side-rail .mapview { margin-bottom: 0; }
+.side-rail .board-canvas { padding-bottom: 14px; }
+/* menus and panels open to the left of the column */
+.side-rail .topbar .menu, .side-rail .phone-bar .menu { position: absolute; top: 0; bottom: auto; left: auto; right: calc(100% + 12px); }
+.side-rail .phone-bar .menu.up { top: auto; bottom: 0; }
+.side-rail .notif-panel { top: 10px; right: calc(var(--rail) + 6px); bottom: 10px; max-width: calc(100vw - var(--rail) - 16px); }
+.side-rail .modal-backdrop { padding-right: var(--rail) !important; }
+.side-rail .sidebar { max-width: calc(100vw - var(--rail) - 20px); }
+/* an open card fills the screen; its close and ••• buttons become round buttons under the clock */
+.side-rail .modal-backdrop:has(.card-window) { padding-right: 0 !important; }
+.side-rail .modal.card-window { padding-right: var(--rail); background: linear-gradient(to left, #f1f2f4 var(--rail), #fff var(--rail)); }
+.side-rail .cw-top .cw-close, .side-rail .cw-top > .menu-anchor { position: fixed; z-index: 60; right: calc((var(--rail) - var(--rail-btn)) / 2); margin: 0; }
+.side-rail .cw-top .cw-close { top: var(--rail-top); }
+.side-rail .cw-top > .menu-anchor { top: calc(var(--rail-top) + var(--rail-btn) + 12px); }
+.side-rail .cw-top .cw-close, .side-rail .cw-top > .menu-anchor > .cw-icon {
+  width: var(--rail-btn); height: var(--rail-btn); border-radius: 50%; display: grid; place-items: center; padding: 0;
+  background: #fff; color: #172b4d; border: 1px solid #e6e8ec; box-shadow: 0 4px 14px rgba(9, 30, 66, .18);
+}
+.side-rail .cw-top > .menu-anchor > .menu { position: absolute; top: 0; left: auto; right: calc(100% + 12px); }

@@ -68,9 +68,23 @@ class KarloViewController: CAPBridgeViewController, WKScriptMessageHandler {
         """
         controller.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         controller.add(self, name: "karloUnlock")
+        // Ask native for the side-strip size on every page load (the page reloads after a deploy).
+        let ready = "document.addEventListener('DOMContentLoaded',function(){window.webkit.messageHandlers.karloRail.postMessage('ready')})"
+        controller.addUserScript(WKUserScript(source: ready, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        controller.add(self, name: "karloRail")
+    }
+
+    /// Width of the one-sided strip (the iPhone Duo's clock column). The page turns its controls into a side rail there.
+    private var rail: CGFloat = 0
+    func applyRail(_ width: CGFloat) {
+        rail = width
+        let w = Int(width.rounded())
+        let js = "(function(){var h=document.documentElement;h.classList.toggle('side-rail',\(w)>0);h.style.setProperty('--rail','\(w)px')})()"
+        webView?.evaluateJavaScript(js, completionHandler: nil)
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "karloRail" { applyRail(rail); return }
         let title = (message.body as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Unlock Karlo"
         LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: title) { ok, err in
             let reason = ok ? "" : (err?.localizedDescription ?? "")
@@ -105,40 +119,32 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 }
 
-/// Holds Karlo's screen and keeps it clear of side cut-outs (e.g. the iPhone Duo's status-pill column),
-/// the way the phone's own apps do: a black strip for the clock and camera, and the app's corners rounded
-/// on the side next to it. Ordinary iPhones in portrait have no side insets, so nothing changes there.
+/// Holds Karlo's screen. On a one-sided strip (the iPhone Duo's clock and camera column) the page runs full
+/// width and is told the strip's size, so it can put its buttons there like a side rail (as Trello does).
+/// Ordinary iPhones have no one-sided strip, so nothing changes there.
 class KarloContainerViewController: UIViewController {
     private let karlo = KarloViewController()
-    private static let cornerRadius: CGFloat = 28
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black // blends with the phone's frame and camera
+        view.backgroundColor = .black
         addChild(karlo)
         view.addSubview(karlo.view)
-        karlo.view.layer.cornerCurve = .continuous
         karlo.didMove(toParent: self)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        // Only a one-sided strip (the Duo's clock column) is kept clear. Ordinary iPhones turned sideways have
-        // equal margins on both sides for the notch; there the page stays full width, as before.
-        var inset = view.safeAreaInsets
-        if inset.left > 0 && inset.right > 0 { inset.left = 0; inset.right = 0 }
-        karlo.view.frame = view.bounds.inset(by: UIEdgeInsets(top: 0, left: inset.left, bottom: 0, right: inset.right))
-        // Round only the corners that face the strip.
-        var corners: CACornerMask = []
-        if inset.right > 0 { corners.formUnion([.layerMaxXMinYCorner, .layerMaxXMaxYCorner]) }
-        if inset.left > 0 { corners.formUnion([.layerMinXMinYCorner, .layerMinXMaxYCorner]) }
-        karlo.view.layer.maskedCorners = corners
-        karlo.view.layer.cornerRadius = corners.isEmpty ? 0 : Self.cornerRadius
-        karlo.view.layer.masksToBounds = !corners.isEmpty
+        let i = view.safeAreaInsets
+        // The page's rail sits on the right. A strip on the left (device turned round) is simply kept clear.
+        // Ordinary iPhones turned sideways have equal margins on both sides: full width, no rail.
+        let leftOnly = i.left > 0 && i.right == 0
+        karlo.view.frame = leftOnly ? view.bounds.inset(by: UIEdgeInsets(top: 0, left: i.left, bottom: 0, right: 0)) : view.bounds
+        karlo.applyRail(i.right > 0 && i.left == 0 ? i.right : 0)
     }
 
     private var hasSideStrip: Bool { (view.safeAreaInsets.left > 0) != (view.safeAreaInsets.right > 0) }
-    // With a side strip the clock sits on the black strip, so keep it white; otherwise the page decides.
+    // With a side rail the clock sits over the dark scrim, so keep it white; otherwise the page decides.
     override var childForStatusBarStyle: UIViewController? { hasSideStrip ? nil : karlo }
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
     override func viewSafeAreaInsetsDidChange() {
