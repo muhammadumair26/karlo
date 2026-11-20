@@ -1,4 +1,5 @@
-import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List, BoardSettings, AutomationRule } from './types';
+import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List, BoardSettings, AutomationRule, TimeEntry } from './types';
+import { formatDuration } from './time';
 
 export const uid = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -51,6 +52,7 @@ export function newCard(id: string, title: string, by: string, at: number, extra
     attachments: [],
     location: null,
     cover: null,
+    time: [],
     archived: false,
     createdAt: at,
     createdBy: by,
@@ -90,6 +92,7 @@ export function normalize(raw: unknown): BoardData {
       location: c.location && typeof c.location.lat === 'number' ? c.location : null,
       cover: c.cover && (c.attachments ?? []).some((x) => x.id === c.cover) ? c.cover : null,
       priority: c.priority ?? 'none',
+      time: Array.isArray(c.time) ? c.time.filter((t) => t && typeof t.start === 'number') : [],
       description,
       archived: !!c.archived,
       dueDone: !!c.dueDone,
@@ -130,7 +133,13 @@ export type BoardActionBody =
   | { type: 'SET_SETTINGS'; settings: BoardSettings; note?: string }
   | { type: 'SET_AUTOMATIONS'; rules: AutomationRule[]; note?: string }
   | { type: 'SET_LIST_RULES'; listId: string; rules: { protected?: boolean; requireDue?: boolean } }
-  | { type: 'MAP_GUEST'; name: string; userId: string | null };
+  | { type: 'MAP_GUEST'; name: string; userId: string | null }
+  /** Starts my timer on a card (stopping any other timer of mine on this board). */
+  | { type: 'TIMER_START'; cardId: string; entryId: string }
+  /** Stops my running timer on a card. */
+  | { type: 'TIMER_STOP'; cardId: string }
+  | { type: 'ADD_TIME'; cardId: string; entry: TimeEntry }
+  | { type: 'DELETE_TIME'; cardId: string; entryId: string };
 
 export type BoardAction = BoardActionBody & { meta: ActionMeta };
 
@@ -252,6 +261,55 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
         ...d,
         cards: { ...d.cards, [c.id]: { ...c, comments: [...c.comments, a.comment] } },
         activity: log(d, a, `commented on “${c.title}”`, c.id),
+      };
+    }
+    case 'TIMER_START': {
+      const c = d.cards[a.cardId];
+      if (!c || c.time.some((t) => t.id === a.entryId)) return d;
+      const me = a.meta.by.id;
+      let cards = d.cards;
+      let activity = d.activity;
+      // One timer per person: stop whatever else I was timing on this board.
+      for (const other of Object.values(d.cards)) {
+        const run = other.time.find((t) => t.userId === me && t.end === null);
+        if (!run) continue;
+        const end = Math.max(run.start, a.meta.at);
+        cards = { ...cards, [other.id]: { ...other, time: other.time.map((t) => (t.id === run.id ? { ...t, end } : t)) } };
+        activity = log({ ...d, activity }, a, `tracked ${formatDuration(end - run.start)} on “${other.title}”`, other.id);
+      }
+      const cur = cards[c.id];
+      const entry: TimeEntry = { id: a.entryId, userId: me, name: a.meta.by.name, start: a.meta.at, end: null };
+      return { ...d, cards: { ...cards, [c.id]: { ...cur, time: [...cur.time, entry] } }, activity: log({ ...d, activity }, a, `started a timer on “${c.title}”`, c.id) };
+    }
+    case 'TIMER_STOP': {
+      const c = d.cards[a.cardId];
+      const run = c?.time.find((t) => t.userId === a.meta.by.id && t.end === null);
+      if (!c || !run) return d;
+      const end = Math.max(run.start, a.meta.at);
+      return {
+        ...d,
+        cards: { ...d.cards, [c.id]: { ...c, time: c.time.map((t) => (t.id === run.id ? { ...t, end } : t)) } },
+        activity: log(d, a, `tracked ${formatDuration(end - run.start)} on “${c.title}”`, c.id),
+      };
+    }
+    case 'ADD_TIME': {
+      const c = d.cards[a.cardId];
+      const e = a.entry;
+      if (!c || c.time.some((t) => t.id === e.id) || e.end === null || e.end <= e.start) return d;
+      return {
+        ...d,
+        cards: { ...d.cards, [c.id]: { ...c, time: [...c.time, e] } },
+        activity: log(d, a, `added ${formatDuration(e.end - e.start)} of time${e.userId !== a.meta.by.id ? ` for ${e.name}` : ''} on “${c.title}”`, c.id),
+      };
+    }
+    case 'DELETE_TIME': {
+      const c = d.cards[a.cardId];
+      const e = c?.time.find((t) => t.id === a.entryId);
+      if (!c || !e) return d;
+      return {
+        ...d,
+        cards: { ...d.cards, [c.id]: { ...c, time: c.time.filter((t) => t.id !== a.entryId) } },
+        activity: log(d, a, `removed ${e.end ? formatDuration(e.end - e.start) : 'a running timer'} of time on “${c.title}”`, c.id),
       };
     }
     case 'DELETE_COMMENT': {

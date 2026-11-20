@@ -71,6 +71,16 @@ export interface CardLocation {
   lng: number;
 }
 
+/** A stretch of time someone spent on a card. `end` is null while their timer is running. */
+export interface TimeEntry {
+  id: string;
+  userId: string;
+  name: string;
+  start: number; // ms since epoch
+  end: number | null;
+  note?: string;
+}
+
 export interface Card {
   id: string;
   title: string;
@@ -89,6 +99,7 @@ export interface Card {
   attachments: Attachment[];
   location: CardLocation | null;
   cover: string | null; // attachment id shown on the card face
+  time: TimeEntry[];
   archived: boolean;
   createdAt: number;
   createdBy: string;

@@ -1840,3 +1840,49 @@ body:has(.app-banner) .va-fab { bottom: 148px; }
 /* Phone apps (any width, e.g. an unfolded iPhone Duo): close button top-left as well. */
 .native-app .cw-top .cw-close { order: -1; margin: 0 2px 0 -6px; }
 .native-app .cw-top { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+
+/* ---------- time tracking */
+.cw-btn.timer-btn.running { background: #e9f2ff; border-color: #85b8ff; color: #0c66e4; font-weight: 600; }
+.cw-btn.timer-btn.running:hover { background: #cce0ff; }
+.timer-clock { font-variant-numeric: tabular-nums; }
+.ct-total { margin-left: auto; font-weight: 700; font-size: 14px; color: #172b4d; background: #f1f2f4; border-radius: 999px; padding: 3px 11px; font-variant-numeric: tabular-nums; }
+.ct-total.live { background: #e9f2ff; color: #0c66e4; }
+.ct-people { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.ct-person { display: inline-flex; align-items: center; gap: 6px; background: #f7f8f9; border: 1px solid #e6e8ec; border-radius: 999px; padding: 3px 10px 3px 3px; font-size: 13px; color: #44546f; }
+.ct-person b { color: #172b4d; font-variant-numeric: tabular-nums; }
+.ct-person.live { border-color: #85b8ff; background: #f3f8ff; }
+.ct-empty { margin: 0 0 10px; font-size: 13.5px; }
+.ct-list { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ct-list li { display: flex; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; }
+.ct-list li:hover { background: #f7f8f9; }
+.ct-list li.live { background: #f3f8ff; }
+.ct-what { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13.5px; color: #44546f; }
+.ct-what > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-what b { color: #172b4d; font-weight: 600; }
+.ct-what small { font-size: 12px; }
+.ct-dur { font-weight: 600; color: #172b4d; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.ct-list li.live .ct-dur { color: #0c66e4; }
+.ct-list .icon-btn { opacity: .55; }
+.ct-list li:hover .icon-btn { opacity: 1; }
+.ct-more { margin-bottom: 8px; }
+.ct-add { gap: 6px; }
+.ct-form { display: flex; flex-direction: column; gap: 8px; background: #f7f8f9; border: 1px solid #e6e8ec; border-radius: 12px; padding: 10px; }
+.ct-form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ct-form-row .text-input:first-child { flex: 1 1 160px; }
+.ct-form-row .text-input[type=date] { flex: 0 1 160px; }
+.ct-err { margin: 0; font-size: 13px; }
+.badge.time-badge.live { color: #0c66e4; font-weight: 600; }
+.badge.time-badge.live svg { animation: tt-pulse 1.4s ease-in-out infinite; }
+@keyframes tt-pulse { 50% { opacity: .35; } }
+
+.run-timer { position: fixed; left: 20px; bottom: 20px; z-index: 60; display: flex; align-items: center; gap: 4px; max-width: min(360px, calc(100vw - 110px)); padding: 5px 5px 5px 14px; border-radius: 999px; background: #172b4d; color: #fff; box-shadow: 0 10px 26px rgba(9, 30, 66, .35); }
+.run-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: #4bce97; box-shadow: 0 0 0 0 rgba(75, 206, 151, .6); animation: tt-ring 1.6s ease-out infinite; }
+@keyframes tt-ring { 70% { box-shadow: 0 0 0 7px rgba(75, 206, 151, 0); } 100% { box-shadow: 0 0 0 0 rgba(75, 206, 151, 0); } }
+.run-open { display: flex; align-items: center; gap: 10px; min-width: 0; border: none; background: none; color: inherit; padding: 6px 6px 6px 4px; cursor: pointer; font: inherit; }
+.run-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; opacity: .85; }
+.run-clock { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
+.run-stop { flex: none; width: 36px; height: 36px; border-radius: 50%; border: none; display: grid; place-items: center; background: rgba(255, 255, 255, .14); cursor: pointer; }
+.run-stop:hover { background: #e2483d; }
+.run-square { width: 11px; height: 11px; border-radius: 2px; background: #fff; }
+@media (max-width: 700px) { .run-timer { left: 14px; bottom: 80px; } }
+body:has(.app-banner) .run-timer { bottom: 152px; }

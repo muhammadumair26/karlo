@@ -1,4 +1,5 @@
-import { AlignLeft, Bell, CheckSquare, Clock, Flag, MapPin, MessageSquare, Paperclip, Pencil } from 'lucide-react';
+import { AlignLeft, Bell, CheckSquare, Clock, Flag, MapPin, MessageSquare, Paperclip, Pencil, Timer } from 'lucide-react';
+import { anyRunning, cardTimeMs, formatDuration } from '../lib/time';
 import { dueStatus, formatDate } from '../lib/filters';
 import type { Card, Label, Person } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
@@ -46,7 +47,11 @@ export function CardItem({
       .map((id) => ({ key: id, id, name: people.get(id)?.name ?? '?', guest: false, owner: false, src: people.get(id)?.avatar_url })),
     ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true, owner: false, src: null })),
   ];
+  const timeMs = cardTimeMs(card, Date.now());
+  const timing = anyRunning(card);
   const hasBadges =
+    timeMs > 0 ||
+    timing ||
     unread > 0 || card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length || card.location;
 
   return (
@@ -140,6 +145,11 @@ export function CardItem({
           {card.location && (
             <span className="badge" title={card.location.name}>
               <MapPin size={13} />
+            </span>
+          )}
+          {(timeMs > 0 || timing) && (
+            <span className={`badge time-badge ${timing ? 'live' : ''}`} title={timing ? 'A timer is running on this card' : 'Time tracked'}>
+              <Timer size={13} /> {formatDuration(timeMs)}
             </span>
           )}
           {total > 0 && (

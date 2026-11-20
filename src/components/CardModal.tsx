@@ -15,7 +15,10 @@ import {
   MapPin,
   MessageSquare,
   MoreHorizontal,
+  Pause,
+  Play,
   SquareKanban,
+  Timer,
   Upload,
   Paperclip,
   Pencil,
@@ -30,6 +33,8 @@ import type { BoardActionBody } from '../lib/board';
 import { cardListId, uid } from '../lib/board';
 import { dueStatus, formatDate } from '../lib/filters';
 import { CardAI } from './CardAI';
+import { CardTime, useNow } from './CardTime';
+import { formatClock, runningEntry } from '../lib/time';
 import { CardExpenses, type ExpensesState } from './ExpensesView';
 import type { Attachment, BoardData, Card, CardLocation, Me, Person, Priority } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES, boardSettings } from '../lib/types';
@@ -209,6 +214,14 @@ export function CardModal({
   };
 
   const update = (patch: Partial<Card>, note?: string) => dispatch({ type: 'UPDATE_CARD', cardId: card.id, patch, note });
+  const myRun = runningEntry(card, me.id);
+  const [showTime, setShowTime] = useState(false);
+  const now = useNow(!!myRun);
+  const toggleTimer = () => {
+    if (myRun) dispatch({ type: 'TIMER_STOP', cardId: card.id });
+    else dispatch({ type: 'TIMER_START', cardId: card.id, entryId: uid() });
+    setShowTime(true);
+  };
   const listId = cardListId(data, card.id);
   const peopleById = useMemo(() => new Map(people.map((p) => [p.user_id, p])), [people]);
   const done = card.checklist.filter((i) => i.done).length;
@@ -367,13 +380,14 @@ export function CardModal({
                 ['labels', Tag, 'Labels', 'Organize, categorize, and prioritize'],
                 ['dates', Clock, 'Dates', 'Start dates and due dates'],
                 ['checklist', CheckSquare, 'Checklist', 'Add subtasks'],
+                ['time', Timer, 'Time', 'Track or log time spent'],
                 ['members', User, 'Members', 'Assign members'],
                 ['priority', Flag, 'Priority', 'Urgent, high, medium or low'],
                 ['attachment', Paperclip, 'Attachment', 'Upload files or add links'],
                 ['location', MapPin, 'Location', 'View this card on a map'],
               ] as const
             ).map(([key, Icon, label, hint]) => (
-              <button key={key} className="add-option" onClick={() => (key === 'checklist' ? openChecklist() : setPop(key))}>
+              <button key={key} className="add-option" onClick={() => (key === 'checklist' ? openChecklist() : key === 'time' ? (setShowTime(true), setPop(null)) : setPop(key))}>
                 <span className="add-option-icon">
                   <Icon size={18} />
                 </span>
@@ -804,6 +818,10 @@ export function CardModal({
               <button className="cw-btn" onClick={openChecklist}>
                 <CheckSquare size={16} /> Checklist
               </button>
+              <button className={`cw-btn timer-btn ${myRun ? 'running' : ''}`} onClick={toggleTimer} title={myRun ? 'Stop your timer' : 'Start a timer for the time you spend on this card'}>
+                {myRun ? <Pause size={16} /> : <Play size={16} />}
+                {myRun ? <span className="timer-clock">{formatClock(now - myRun.start)}</span> : 'Start timer'}
+              </button>
               <button className={`cw-btn ${pop === 'members' ? 'on' : ''}`} onClick={() => toggle('members')}>
                 <User size={16} /> Members
               </button>
@@ -1115,6 +1133,11 @@ export function CardModal({
               adding={addingExpense}
               onAddingChange={setAddingExpense}
             />
+          )}
+
+          {/* time tracking */}
+          {((card.time ?? []).length > 0 || showTime) && (
+            <CardTime card={card} me={me} people={people} editable={editable} isAdmin={isAdmin} dispatch={dispatch} />
           )}
 
           {/* checklist */}

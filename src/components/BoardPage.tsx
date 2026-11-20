@@ -52,6 +52,7 @@ import { AutomationModal } from './AutomationModal';
 import { automationFollowUps } from '../lib/automation';
 import { DuePrompt } from './DuePrompt';
 import { VoiceAssistant } from './VoiceAssistant';
+import { RunningTimer } from './CardTime';
 import { ViewsCustomizer } from './ViewsCustomizer';
 import { arrange, usePrefs } from '../lib/prefs';
 import { ExpensesView } from './ExpensesView';
@@ -718,6 +719,15 @@ export function BoardPage({
         </Modal>
       )}
 
+      {data && (
+        <RunningTimer
+          cards={Object.values(data.cards)}
+          meId={me.id}
+          hideCardId={openCardId}
+          onOpen={setOpenCardId}
+          onStop={(cardId) => dispatch({ type: 'TIMER_STOP', cardId })}
+        />
+      )}
       {data && (
         <VoiceAssistant
           boardId={meta.id}
