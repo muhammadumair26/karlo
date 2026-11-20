@@ -56,6 +56,15 @@ let fcmToken: { value: string; exp: number } | null = null;
 function serviceAccount(): ServiceAccount | null {
   let raw = Deno.env.get('FCM_SERVICE_ACCOUNT')?.trim();
   if (!raw) return null;
+  // Only the private key pasted (with or without the BEGIN/END lines): pair it with Karlo's Firebase service account.
+  const keyBody = raw.replace(/\\n/g, '\n').replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/[\s"]/g, '');
+  if (!raw.startsWith('{') && keyBody.startsWith('MII')) {
+    return {
+      project_id: Deno.env.get('FCM_PROJECT_ID') ?? 'karlo-b4dbd',
+      client_email: Deno.env.get('FCM_CLIENT_EMAIL') ?? 'firebase-adminsdk-fbsvc@karlo-b4dbd.iam.gserviceaccount.com',
+      private_key: `-----BEGIN PRIVATE KEY-----\n${keyBody.match(/.{1,64}/g)!.join('\n')}\n-----END PRIVATE KEY-----\n`,
+    };
+  }
   if (!raw.startsWith('{')) {
     try {
       raw = atob(raw).trim(); // pasted as base64
