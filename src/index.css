@@ -1946,6 +1946,7 @@ body:has(.app-banner) .run-timer { bottom: 152px; }
 html.side-rail { --rail-top: 150px; --rail-btn: 50px; }
 .side-rail body::before { content: ''; position: fixed; top: -40px; right: -30px; width: calc(var(--rail) + 70px); height: calc(var(--rail-top) + 60px); z-index: 29; pointer-events: none; background: radial-gradient(closest-side, rgba(9, 14, 30, .5), rgba(9, 14, 30, 0)); }
 .side-rail .board-header, .side-rail .filter-bar { padding-right: calc(var(--rail) + 6px) !important; }
+.side-rail .auth-page { padding-right: calc(var(--rail) + 4px); }
 /* lists slide under the floating buttons; the last one can still scroll fully clear of them */
 .side-rail .board-canvas::after { content: ''; flex: 0 0 calc(var(--rail) - 10px); }
 .side-rail .tv-wrap, .side-rail .calendar, .side-rail .dashboard, .side-rail .timeline, .side-rail .mapview { margin-right: calc(var(--rail) + 4px); }
