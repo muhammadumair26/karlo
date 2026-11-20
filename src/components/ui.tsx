@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { Person, Role } from '../lib/types';
 import { ROLE_INFO } from '../lib/types';
 
@@ -75,7 +76,8 @@ export function Modal({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
+  // Rendered at the page root so it always sits above the top bar, sidebar and board.
+  return createPortal(
     <div className="modal-backdrop" onMouseDown={onClose}>
       <div className={`modal ${wide ? 'wide' : ''}`} onMouseDown={(e) => e.stopPropagation()} role="dialog">
         <button className="modal-close" onClick={onClose} aria-label="Close">
@@ -84,7 +86,8 @@ export function Modal({
         {title && <h3 className="modal-heading">{title}</h3>}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

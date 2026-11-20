@@ -523,3 +523,10 @@ body:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: 
 .menu > button { display: flex; align-items: center; gap: 8px; }
 .menu > button svg { flex-shrink: 0; color: #626f86; }
 .menu > button.danger-text svg { color: inherit; }
+
+/* Layering: board area < sidebar < top bar (profile menu) < pop-up windows */
+.body { z-index: 1; }
+.sidebar { z-index: 2; }
+@media (min-width: 721px) { .sidebar { position: relative; } }
+.topbar { z-index: 30; }
+.modal-backdrop { z-index: 100; }
