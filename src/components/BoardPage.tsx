@@ -62,7 +62,7 @@ const VIEWS: { id: View; label: string; Icon: typeof Kanban }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: Gauge },
   { id: 'timeline', label: 'Timeline', Icon: GanttChart },
   { id: 'map', label: 'Map', Icon: MapPin },
-  { id: 'expenses', label: 'Expenses', Icon: Wallet },
+  { id: 'expenses', label: 'Money', Icon: Wallet },
 ];
 
 const STATUS_TEXT: Record<SyncStatus, string> = {
