@@ -1827,3 +1827,6 @@ body:has(.app-banner) .va-fab { bottom: 148px; }
 .sec .sec-setup { align-items: stretch; }
 .sec .sec-qr { align-self: center; border-radius: 12px; }
 .sec .sec-code input { border-radius: 10px; }
+
+/* Pop-ups sit in the middle of the screen (auto margins keep tall ones scrollable from the top). */
+.modal-backdrop > .modal:not(.card-window) { margin-top: auto; margin-bottom: auto; }
