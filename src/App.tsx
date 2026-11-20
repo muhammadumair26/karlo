@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PoweredBy } from './components/PoweredBy';
 import { AuthScreen, SetPasswordScreen } from './components/AuthScreen';
 import { BoardPage } from './components/BoardPage';
 import { BoardSwitcher, rememberBoard } from './components/BoardSwitcher';
@@ -331,6 +332,9 @@ function Home({ userId, email }: { userId: string; email: string }) {
             </>
           )}
         </div>
+        <div className="splash-powered">
+          <PoweredBy compact onDark />
+        </div>
       </div>
     );
   }
@@ -370,6 +374,9 @@ function Home({ userId, email }: { userId: string; email: string }) {
               </a>
             )}
             <button onClick={() => supabase?.auth.signOut()}>Sign out</button>
+            <div className="menu-powered">
+              <PoweredBy compact />
+            </div>
           </Menu>
         </span>
       </header>

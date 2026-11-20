@@ -1,5 +1,6 @@
 import { Star, Users } from 'lucide-react';
 import { useState } from 'react';
+import { PoweredBy } from './PoweredBy';
 import type { BoardMeta, Workspace } from '../lib/types';
 import { canEdit } from '../lib/types';
 import { AddForm } from './Editable';
@@ -96,6 +97,9 @@ export function Sidebar({
         </section>
       )}
 
+      <div className="sidebar-powered">
+        <PoweredBy compact onDark />
+      </div>
     </aside>
   );
 }

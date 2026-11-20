@@ -1,5 +1,6 @@
 import { Eye, EyeOff, Fingerprint } from 'lucide-react';
 import { friendlyAuthError, passkeysSupported, signInWithPasskey } from '../lib/security';
+import { PoweredBy } from './PoweredBy';
 import { useState } from 'react';
 import { REMEMBER_KEY, rememberMe, supabase } from '../supabase';
 
@@ -205,6 +206,7 @@ export function AuthScreen() {
           </button>
         )}
       </form>
+      <PoweredBy onDark />
     </div>
   );
 }
