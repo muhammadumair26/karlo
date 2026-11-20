@@ -203,9 +203,12 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     case 'UPDATE_CARD': {
       const c = d.cards[a.cardId];
       if (!c) return d;
+      // Ownership is fixed: the creator owns the card, and who/when it was created never changes.
+      const { owners: _o, createdBy: _b, createdAt: _t, ...patch } = a.patch;
+      if (Object.keys(patch).length === 0) return d;
       return {
         ...d,
-        cards: { ...d.cards, [c.id]: { ...c, ...a.patch } },
+        cards: { ...d.cards, [c.id]: { ...c, ...patch } },
         activity: a.note ? log(d, a, a.note.replace('{card}', `“${c.title}”`), c.id) : d.activity,
       };
     }
