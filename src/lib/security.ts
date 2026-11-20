@@ -3,8 +3,16 @@ import { isNativeApp } from './platform';
 
 /** Passkeys (Face ID / Touch ID / fingerprint / Windows Hello / phone) and two-step sign-in helpers. */
 
-/** Passkeys work on the website. Inside the iOS/Android app they need app-domain linking first, so they're hidden there. */
-export const passkeysSupported = () => !isNativeApp && typeof window !== 'undefined' && !!window.PublicKeyCredential && window.isSecureContext;
+/** Passkeys work on the website, and in the Android app when its WebView supports them (it tells us through KarloNative). */
+export const passkeysSupported = () => {
+  if (typeof window === 'undefined' || !window.PublicKeyCredential || !window.isSecureContext) return false;
+  if (!isNativeApp) return true;
+  try {
+    return (window as unknown as { KarloNative?: { passkeys(): boolean } }).KarloNative?.passkeys() === true;
+  } catch {
+    return false;
+  }
+};
 
 /** Plain-language message for passkey / WebAuthn errors. */
 export function friendlyAuthError(e: unknown): string {

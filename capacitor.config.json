@@ -2,9 +2,21 @@
   "appId": "com.orionsoftsol.karlo",
   "appName": "Karlo",
   "webDir": "dist",
-  "server": { "androidScheme": "https" },
+  "server": {
+    "androidScheme": "https",
+    "hostname": "karlo.orionsoftsol.com"
+  },
   "plugins": {
-    "SplashScreen": { "launchShowDuration": 900, "launchAutoHide": true, "backgroundColor": "#ffffff", "showSpinner": false },
-    "StatusBar": { "style": "DARK", "backgroundColor": "#1d4ed8", "overlaysWebView": false }
+    "SplashScreen": {
+      "launchShowDuration": 900,
+      "launchAutoHide": true,
+      "backgroundColor": "#ffffff",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#1d4ed8",
+      "overlaysWebView": false
+    }
   }
 }
