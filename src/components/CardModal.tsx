@@ -102,7 +102,7 @@ export function CardModal({
                   onClick={() => toggleAssignee(p)}
                   title={p.email}
                 >
-                  <Avatar id={p.user_id} name={p.name} size={22} />
+                  <Avatar id={p.user_id} name={p.name} src={p.avatar_url} size={22} />
                   {p.name}
                   {on && ' ✓'}
                 </button>
@@ -346,7 +346,7 @@ export function CardModal({
                   setComment('');
                 }}
               >
-                <Avatar id={me.id} name={me.name} size={30} />
+                <Avatar id={me.id} name={me.name} src={me.avatar_url} size={30} />
                 <textarea
                   placeholder="Write a comment…"
                   value={comment}
@@ -363,7 +363,7 @@ export function CardModal({
             <ul className="comments">
               {[...card.comments].reverse().map((c) => (
                 <li key={c.id}>
-                  <Avatar id={c.authorId} name={c.authorName} size={30} />
+                  <Avatar id={c.authorId} name={peopleById.get(c.authorId)?.name ?? c.authorName} src={peopleById.get(c.authorId)?.avatar_url} size={30} />
                   <div>
                     <div className="comment-head">
                       <strong>{c.authorName}</strong> <span className="muted">{timeAgo(c.createdAt)}</span>

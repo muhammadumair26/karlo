@@ -101,12 +101,13 @@ export function MembersPanel({
           const viaWorkspace = isBoard && p.via === 'workspace';
           return (
             <li key={p.user_id + (p.via ?? '')}>
-              <Avatar id={p.user_id} name={p.name} size={32} />
+              <Avatar id={p.user_id} name={p.name} src={p.avatar_url} size={32} />
               <div className="person-info">
                 <div className="person-name">
                   {p.name} {p.user_id === me.id && <span className="muted">(you)</span>}
                 </div>
                 <div className="muted">
+                  {p.title ? `${p.title} · ` : ''}
                   {p.email}
                   {viaWorkspace && ' · via workspace'}
                 </div>

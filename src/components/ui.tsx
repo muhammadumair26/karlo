@@ -15,7 +15,22 @@ function colorFor(id: string) {
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
 }
 
-export function Avatar({ id, name, size = 28, title }: { id: string; name: string; size?: number; title?: string }) {
+export function Avatar({
+  id,
+  name,
+  size = 28,
+  title,
+  src,
+}: {
+  id: string;
+  name: string;
+  size?: number;
+  title?: string;
+  src?: string | null;
+}) {
+  if (src) {
+    return <img className="avatar photo" src={src} alt={name} title={title ?? name} width={size} height={size} loading="lazy" style={{ width: size, height: size }} />;
+  }
   return (
     <span
       className="avatar"
@@ -33,7 +48,7 @@ export function AvatarStack({ ids, people, max = 3, size = 24 }: { ids: string[]
   return (
     <span className="avatar-stack">
       {shown.map((id) => (
-        <Avatar key={id} id={id} name={people.get(id)?.name ?? '?'} size={size} />
+        <Avatar key={id} id={id} name={people.get(id)?.name ?? '?'} src={people.get(id)?.avatar_url} size={size} />
       ))}
       {ids.length > max && (
         <span className="avatar more" style={{ width: size, height: size, fontSize: size * 0.4 }}>

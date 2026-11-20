@@ -502,3 +502,16 @@ input, textarea { font: inherit; color: inherit; }
 .bg-thumb:hover { filter: brightness(.9); }
 .bg-thumb.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #388bff; }
 .ws-label { gap: 4px; }
+
+/* ---------- profile ---------- */
+.avatar.photo { object-fit: cover; padding: 0; background: #dfe1e6; }
+.profile-top { display: flex; gap: 18px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.profile-photo { position: relative; }
+.photo-busy { position: absolute; inset: 0; border-radius: 50%; background: rgba(255,255,255,.7); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.profile-photo-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; flex: 1; min-width: 200px; }
+.profile-photo-actions .btn { display: inline-flex; }
+.profile-form label { display: flex; flex-direction: column; gap: 3px; }
+.profile-form.password { margin-top: 18px; padding-top: 14px; border-top: 1px solid #dfe1e6; }
+.profile-form h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; }
+.text-input:disabled { background: #f1f2f4; color: #626f86; }
+.profile-head { flex-direction: row !important; gap: 10px; align-items: center; }

@@ -33,8 +33,8 @@ export function CardItem({
   const prio = PRIORITIES.find((p) => p.value === card.priority);
   const cardLabels = card.labelIds.map((id) => labels.get(id)).filter((l): l is Label => !!l);
   const avatars = [
-    ...card.assignees.map((id) => ({ key: id, id, name: people.get(id)?.name ?? '?', guest: false })),
-    ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true })),
+    ...card.assignees.map((id) => ({ key: id, id, name: people.get(id)?.name ?? '?', guest: false, src: people.get(id)?.avatar_url })),
+    ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true, src: null })),
   ];
   const hasBadges =
     card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length;
@@ -128,7 +128,7 @@ export function CardItem({
           {avatars.length > 0 && (
             <span className="avatar-stack">
               {avatars.slice(0, 3).map((a) => (
-                <Avatar key={a.key} id={a.id} name={a.name} size={24} title={a.guest ? `${a.name} (imported, not linked)` : a.name} />
+                <Avatar key={a.key} id={a.id} name={a.name} src={a.src} size={24} title={a.guest ? `${a.name} (imported, not linked)` : a.name} />
               ))}
               {avatars.length > 3 && (
                 <span className="avatar more" style={{ width: 24, height: 24, fontSize: 10 }}>

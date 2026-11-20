@@ -13,12 +13,42 @@ function fail(error: { message: string } | null) {
 }
 
 export async function loadMe(userId: string, email: string): Promise<Me> {
-  const { data } = await sb().from('profiles').select('name').eq('id', userId).maybeSingle();
-  return { id: userId, email, name: data?.name || email.split('@')[0] };
+  const { data } = await sb().from('profiles').select('name, title, avatar_url').eq('id', userId).maybeSingle();
+  return { id: userId, email, name: data?.name || email.split('@')[0], title: data?.title ?? '', avatar_url: data?.avatar_url ?? null };
 }
 
-export async function updateMyName(userId: string, name: string) {
-  const { error } = await sb().from('profiles').update({ name }).eq('id', userId);
+export async function updateProfile(userId: string, patch: { name?: string; title?: string; avatar_url?: string | null }) {
+  const { error } = await sb().from('profiles').update(patch).eq('id', userId);
+  fail(error);
+}
+
+/** Uploads an already-resized photo to avatars/<user id>/…, removes older photos, returns the public URL. */
+export async function uploadAvatar(userId: string, blob: Blob): Promise<string> {
+  const ext = blob.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${userId}/avatar-${Date.now()}.${ext}`; // new name each time so browsers don't show a cached old photo
+  const bucket = sb().storage.from('avatars');
+  const { error } = await bucket.upload(path, blob, { contentType: blob.type, upsert: false, cacheControl: '31536000' });
+  fail(error);
+  await removeOldAvatars(userId, path);
+  const url = bucket.getPublicUrl(path).data.publicUrl;
+  await updateProfile(userId, { avatar_url: url });
+  return url;
+}
+
+async function removeOldAvatars(userId: string, keep?: string) {
+  const bucket = sb().storage.from('avatars');
+  const { data } = await bucket.list(userId);
+  const old = (data ?? []).map((f) => `${userId}/${f.name}`).filter((p) => p !== keep);
+  if (old.length) await bucket.remove(old);
+}
+
+export async function removeAvatar(userId: string) {
+  await removeOldAvatars(userId);
+  await updateProfile(userId, { avatar_url: null });
+}
+
+export async function changePassword(password: string) {
+  const { error } = await sb().auth.updateUser({ password });
   fail(error);
 }
 

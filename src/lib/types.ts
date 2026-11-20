@@ -127,12 +127,16 @@ export interface Person {
   email: string;
   role: Role;
   via?: 'workspace' | 'board';
+  avatar_url?: string | null;
+  title?: string;
 }
 
 export interface Me {
   id: string;
   email: string;
   name: string;
+  title: string;
+  avatar_url: string | null;
 }
 
 export const BOARD_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#475569'];

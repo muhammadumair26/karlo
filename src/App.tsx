@@ -4,7 +4,8 @@ import { AuthScreen, SetPasswordScreen } from './components/AuthScreen';
 import { BoardPage } from './components/BoardPage';
 import { ImportModal } from './components/ImportModal';
 import { Sidebar } from './components/Sidebar';
-import { Avatar, download, Menu, Modal } from './components/ui';
+import { Avatar, download, Menu } from './components/ui';
+import { ProfileModal } from './components/ProfileModal';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import * as api from './lib/api';
 import { starterBoard } from './lib/board';
@@ -231,14 +232,18 @@ function Home({ userId, email }: { userId: string; email: string }) {
         </span>
         <span className="menu-anchor">
           <button className="profile-btn" onClick={() => setProfileOpen(!profileOpen)} title={me.email}>
-            <Avatar id={me.id} name={me.name} size={30} />
+            <Avatar id={me.id} name={me.name} src={me.avatar_url} size={30} />
           </button>
           <Menu open={profileOpen} onClose={() => setProfileOpen(false)}>
-            <div className="menu-head">
-              <strong>{me.name}</strong>
-              <span className="muted">{me.email}</span>
+            <div className="menu-head profile-head">
+              <Avatar id={me.id} name={me.name} src={me.avatar_url} size={40} />
+              <div>
+                <strong>{me.name}</strong>
+                {me.title && <div className="muted">{me.title}</div>}
+                <div className="muted">{me.email}</div>
+              </div>
             </div>
-            <button onClick={() => (setProfileOpen(false), setProfileModal(true))}>Edit profile name</button>
+            <button onClick={() => (setProfileOpen(false), setProfileModal(true))}>Edit profile & password</button>
             <button onClick={() => supabase?.auth.signOut()}>Sign out</button>
           </Menu>
         </span>
@@ -300,38 +305,9 @@ function Home({ userId, email }: { userId: string; email: string }) {
         <ProfileModal
           me={me}
           onClose={() => setProfileModal(false)}
-          onSaved={(name) => {
-            setMe({ ...me, name });
-            setProfileModal(false);
-          }}
+          onSaved={(m) => setMe(m)}
         />
       )}
     </div>
-  );
-}
-
-function ProfileModal({ me, onClose, onSaved }: { me: Me; onClose: () => void; onSaved: (name: string) => void }) {
-  const [name, setName] = useState(me.name);
-  const [err, setErr] = useState<string | null>(null);
-  return (
-    <Modal title="Your profile" onClose={onClose}>
-      <form
-        className="profile-form"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          try {
-            await api.updateMyName(me.id, name.trim());
-            onSaved(name.trim());
-          } catch (x) {
-            setErr((x as Error).message);
-          }
-        }}
-      >
-        <label className="muted">Display name (shown to your team)</label>
-        <input className="text-input" value={name} required onChange={(e) => setName(e.target.value)} />
-        {err && <div className="auth-error">{err}</div>}
-        <button className="btn primary">Save</button>
-      </form>
-    </Modal>
   );
 }
