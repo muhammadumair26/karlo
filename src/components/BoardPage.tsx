@@ -15,12 +15,14 @@ import {
   Trash2,
   UserPlus,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as api from '../lib/api';
 import type { Filters } from '../lib/filters';
 import { hasFilters, NO_FILTERS } from '../lib/filters';
+import type { BoardActionBody } from '../lib/board';
 import { boardToCSV, karloExport } from '../lib/importers';
+import { notificationsFor, sendNotifications } from '../lib/notify';
 import type { BoardMeta, Me, Person } from '../lib/types';
 import { BACKGROUND_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
 import { useBoardSync, type SyncStatus } from '../lib/useBoardSync';
@@ -50,9 +52,12 @@ export function BoardPage({
   me,
   starred,
   onToggleStar,
+  openCardRequest,
   onBoardGone,
   onMetaChanged,
 }: {
+  /** Open this card once the board has loaded (from notifications or search). */
+  openCardRequest?: { cardId: string; nonce: number } | null;
   meta: BoardMeta;
   me: Me;
   starred: boolean;
@@ -60,8 +65,27 @@ export function BoardPage({
   onBoardGone: () => void;
   onMetaChanged: () => void;
 }) {
-  const { data, status, loadError, dispatch } = useBoardSync(meta.id, me);
-  const [people, setPeople] = useState<Person[]>([]);
+  const { data, status, loadError, dispatch: applyAction } = useBoardSync(meta.id, me);
+  const [rawPeople, setPeople] = useState<Person[]>([]);
+  // Always show my latest name/photo, even before the people list is reloaded.
+  const people = useMemo(
+    () => rawPeople.map((p) => (p.user_id === me.id ? { ...p, name: me.name, avatar_url: me.avatar_url, title: me.title } : p)),
+    [rawPeople, me.id, me.name, me.avatar_url, me.title],
+  );
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const peopleRef = useRef(people);
+  peopleRef.current = people;
+
+  /** Apply a change, then notify the people it concerns (mentions, card members, newly added). */
+  const dispatch = useCallback(
+    (b: BoardActionBody) => {
+      const before = dataRef.current;
+      applyAction(b);
+      if (before) void sendNotifications(notificationsFor(before, b, me, peopleRef.current, meta.id));
+    },
+    [applyAction, me, meta.id],
+  );
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [view, setView] = useState<View>(() => {
@@ -81,7 +105,21 @@ export function BoardPage({
   const loadPeople = useCallback(() => {
     api.boardPeople(meta.id).then(setPeople).catch(() => {});
   }, [meta.id]);
-  useEffect(loadPeople, [loadPeople]);
+  useEffect(loadPeople, [loadPeople, me.name, me.avatar_url]);
+  // Pick up teammates' new photos/names: when the tab regains focus and once a minute.
+  useEffect(() => {
+    const onVisible = () => document.visibilityState === 'visible' && loadPeople();
+    document.addEventListener('visibilitychange', onVisible);
+    const t = window.setInterval(loadPeople, 60000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(t);
+    };
+  }, [loadPeople]);
+  useEffect(() => {
+    if (openCardRequest && data?.cards[openCardRequest.cardId]) setOpenCardId(openCardRequest.cardId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCardRequest?.nonce, !!data]);
   useEffect(() => {
     setOpenCardId(null);
     setFilters(NO_FILTERS);

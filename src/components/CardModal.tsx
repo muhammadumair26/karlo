@@ -20,13 +20,12 @@ import { cardListId, uid } from '../lib/board';
 import { dueStatus, formatDate } from '../lib/filters';
 import type { BoardData, Card, Me, Person, Priority } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
+import { handleOf } from '../lib/notify';
 import { LabelsEditor } from './LabelsEditor';
+import { MentionInput } from './MentionInput';
 import { Avatar, Menu, Modal, timeAgo } from './ui';
 
 type Pop = null | 'add' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority';
-
-/** @handle used for mentions: the part of the email before "@". */
-const handleOf = (p: Person) => p.email.split('@')[0];
 
 /** Renders text with @mentions highlighted and bare links clickable. */
 function RichText({ text }: { text: string }) {
@@ -90,11 +89,10 @@ export function CardModal({
   const [link, setLink] = useState({ name: '', url: '' });
   const [comment, setComment] = useState('');
   const [commentFocus, setCommentFocus] = useState(false);
-  const [mention, setMention] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [editLabels, setEditLabels] = useState(false);
-  const commentRef = useRef<HTMLTextAreaElement>(null);
-  const itemRef = useRef<HTMLInputElement>(null);
+  const commentRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
+  const itemRef = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!editingDesc) setDesc(card.description);
@@ -126,34 +124,13 @@ export function CardModal({
     }, 30);
   };
 
-  // ---- comments + mentions
-  const onCommentChange = (v: string, caret: number) => {
-    setComment(v);
-    const m = v.slice(0, caret).match(/(?:^|\s)@([\w.+-]*)$/);
-    setMention(m ? m[1].toLowerCase() : null);
-  };
-  const mentionMatches =
-    mention === null
-      ? []
-      : people.filter((p) => handleOf(p).toLowerCase().includes(mention) || p.name.toLowerCase().includes(mention)).slice(0, 6);
-  const insertMention = (p: Person) => {
-    const el = commentRef.current;
-    const caret = el?.selectionStart ?? comment.length;
-    const before = comment.slice(0, caret).replace(/@([\w.+-]*)$/, `@${handleOf(p)} `);
-    setComment(before + comment.slice(caret));
-    setMention(null);
-    setTimeout(() => {
-      el?.focus();
-      el?.setSelectionRange(before.length, before.length);
-    }, 0);
-  };
+  // ---- comments
   const submitComment = () => {
     const t = comment.trim();
     if (!t) return;
     dispatch({ type: 'ADD_COMMENT', cardId: card.id, comment: { id: uid(), authorId: me.id, authorName: me.name, text: t, createdAt: Date.now() } });
     setComment('');
     setCommentFocus(false);
-    setMention(null);
   };
   const reply = (name: string, authorId: string) => {
     const p = peopleById.get(authorId);
@@ -583,7 +560,20 @@ export function CardModal({
             </div>
             {editingDesc ? (
               <div className="cw-indent">
-                <textarea className="modal-desc" autoFocus value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Add a more detailed description…" />
+                <MentionInput
+                  multiline
+                  autoFocus
+                  className="desc-editor"
+                  value={desc}
+                  onChange={setDesc}
+                  people={people}
+                  meId={me.id}
+                  placeholder="Add a more detailed description… (type @ to mention someone)"
+                  onSubmit={() => {
+                    if (desc !== card.description) update({ description: desc });
+                    setEditingDesc(false);
+                  }}
+                />
                 <div className="add-form-actions">
                   <button
                     className="btn primary"
@@ -683,7 +673,9 @@ export function CardModal({
                         checked={item.done}
                         onChange={() => update({ checklist: card.checklist.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)) })}
                       />
-                      <span className={item.done ? 'struck' : ''}>{item.text}</span>
+                      <span className={item.done ? 'struck' : ''}>
+                        <RichText text={item.text} />
+                      </span>
                     </label>
                     {editable && (
                       <button className="icon-btn" onClick={() => update({ checklist: card.checklist.filter((i) => i.id !== item.id) })} aria-label="Remove item">
@@ -704,7 +696,21 @@ export function CardModal({
                     setNewItem('');
                   }}
                 >
-                  <input ref={itemRef} placeholder="Add an item…" value={newItem} onChange={(e) => setNewItem(e.target.value)} />
+                  <MentionInput
+                    ref={itemRef}
+                    className="grow"
+                    value={newItem}
+                    onChange={setNewItem}
+                    people={people}
+                    meId={me.id}
+                    placeholder="Add an item… (@ to mention)"
+                    onSubmit={() => {
+                      const t = newItem.trim();
+                      if (!t) return;
+                      update({ checklist: [...card.checklist, { id: uid(), text: t, done: false }] });
+                      setNewItem('');
+                    }}
+                  />
                   <button className="btn" type="submit">
                     Add
                   </button>
@@ -727,38 +733,17 @@ export function CardModal({
 
           {editable && (
             <div className={`comment-box ${commentFocus || comment ? 'open' : ''}`}>
-              <textarea
+              <MentionInput
                 ref={commentRef}
-                placeholder="Write a comment… (type @ to mention)"
+                multiline
                 value={comment}
+                onChange={setComment}
+                people={people}
+                meId={me.id}
+                placeholder="Write a comment… (type @ to mention someone)"
                 onFocus={() => setCommentFocus(true)}
-                onChange={(e) => onCommentChange(e.target.value, e.target.selectionStart)}
-                onKeyDown={(e) => {
-                  if (mentionMatches.length && e.key === 'Enter') {
-                    e.preventDefault();
-                    insertMention(mentionMatches[0]);
-                  } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submitComment();
-                  else if (e.key === 'Escape') setMention(null);
-                }}
+                onSubmit={submitComment}
               />
-              {mentionMatches.length > 0 && (
-                <div className="mention-list">
-                  {mentionMatches.map((p) => (
-                    <button
-                      key={p.user_id}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        insertMention(p);
-                      }}
-                    >
-                      <Avatar id={p.user_id} name={p.name} src={p.avatar_url} size={24} />
-                      <span>
-                        {p.name} <span className="muted">@{handleOf(p)}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
               {(commentFocus || comment) && (
                 <div className="add-form-actions">
                   <button className="btn primary" disabled={!comment.trim()} onClick={submitComment}>
@@ -769,7 +754,6 @@ export function CardModal({
                     onClick={() => {
                       setComment('');
                       setCommentFocus(false);
-                      setMention(null);
                     }}
                   >
                     Cancel

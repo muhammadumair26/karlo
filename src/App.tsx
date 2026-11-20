@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthScreen, SetPasswordScreen } from './components/AuthScreen';
 import { BoardPage } from './components/BoardPage';
 import { ImportModal } from './components/ImportModal';
+import { NotificationsBell } from './components/NotificationsPanel';
+import { SearchBar } from './components/SearchBar';
 import { Sidebar } from './components/Sidebar';
 import { Avatar, download, Menu } from './components/ui';
 import { ProfileModal } from './components/ProfileModal';
@@ -90,6 +92,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       /* ignore */
     }
   };
+  const [openRequest, setOpenRequest] = useState<{ boardId: string; cardId: string; nonce: number } | null>(null);
   const reloadTimer = useRef<number | undefined>(undefined);
   const boardsRef = useRef<BoardMeta[]>([]);
   boardsRef.current = boards;
@@ -177,6 +180,19 @@ function Home({ userId, email }: { userId: string; email: string }) {
   }, [ready, boards, activeId, select]);
 
   const active = boards.find((b) => b.id === activeId) ?? null;
+
+  /** Jump to a board (and optionally a card) — used by search and notifications. */
+  const openFromAnywhere = useCallback(
+    (boardId: string, cardId: string | null) => {
+      if (!boardsRef.current.some((b) => b.id === boardId)) {
+        alert('That board is no longer available to you.');
+        return;
+      }
+      select(boardId);
+      setOpenRequest(cardId ? { boardId, cardId, nonce: Date.now() } : null);
+    },
+    [select],
+  );
   const wsForModal = workspaces.find((w) => w.id === wsModal) ?? null;
 
   const newBoard = async (workspaceId: string, title: string) => {
@@ -230,6 +246,8 @@ function Home({ userId, email }: { userId: string; email: string }) {
           <img className="brand-logo" src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />
           Karlo
         </span>
+        <SearchBar boards={boards} onOpen={openFromAnywhere} />
+        <NotificationsBell userId={userId} onOpenCard={openFromAnywhere} />
         <span className="menu-anchor">
           <button className="profile-btn" onClick={() => setProfileOpen(!profileOpen)} title={me.email}>
             <Avatar id={me.id} name={me.name} src={me.avatar_url} size={30} />
@@ -272,6 +290,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
               key={active.id}
               meta={active}
               me={me}
+              openCardRequest={openRequest?.boardId === active.id ? openRequest : null}
               starred={starred.includes(active.id)}
               onToggleStar={() => toggleStar(active.id)}
               onMetaChanged={reload}
