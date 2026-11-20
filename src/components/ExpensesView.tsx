@@ -236,10 +236,20 @@ export function ExpensesView({
           <span className="stat-num">{money(spent, cur)}</span>
           <span className="stat-label">{filtered ? 'Costs (filtered)' : 'Total costs'}</span>
         </div>
-        <div className={`stat ex-profit ${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}`}>
-          <span className="stat-num">{money(net, cur)}</span>
-          <span className="stat-label">{net >= 0 ? 'Profit' : 'Loss'} {filtered ? '(filtered)' : ''}</span>
-        </div>
+        {hasIncome ? (
+          <div className={`stat ex-profit ${net > 0 ? 'pos' : net < 0 ? 'neg' : ''}`}>
+            <span className="stat-num">{money(net, cur)}</span>
+            <span className="stat-label">
+              {net >= 0 ? 'Profit' : 'Loss'} {filtered ? '(filtered)' : ''}
+            </span>
+          </div>
+        ) : (
+          // Before the first sale, costs are what you've put into the business — not a "loss".
+          <div className="stat ex-invested" title="Shows profit or loss once you record your first income">
+            <span className="stat-num">{money(spent, cur)}</span>
+            <span className="stat-label">Invested so far {filtered ? '(filtered)' : ''}</span>
+          </div>
+        )}
         {budget ? (
           <div className={`stat ex-budget ${used >= 1 ? 'bad' : used >= 0.8 ? 'warn' : ''}`}>
             <span className="stat-num">{money(Math.abs(budget - allSpent), cur)}</span>
@@ -1201,7 +1211,11 @@ export function reportHtml(o: {
 <h1>${esc(o.boardTitle)} — money report</h1>
 <div class="meta">${esc(periodLabel)} · amounts in ${esc(cur)} · generated ${esc(new Date().toLocaleString())}</div>
 <div class="tiles"><div class="tile"><b>${m(inc)}</b><span>Income</span></div><div class="tile"><b>${m(cost)}</b><span>Costs</span></div>
-<div class="tile ${net >= 0 ? 'pos' : 'neg'}"><b>${m(net)}</b><span>${net >= 0 ? 'Profit' : 'Loss'}</span></div></div>
+${
+  incomeOf(o.expenses).length
+    ? `<div class="tile ${net >= 0 ? 'pos' : 'neg'}"><b>${m(net)}</b><span>${net >= 0 ? 'Profit' : 'Loss'}</span></div>`
+    : `<div class="tile"><b>${m(cost)}</b><span>Invested so far (no income yet)</span></div>`
+}</div>
 <div class="two"><div><h2>Costs by category</h2><table>${
     byCat.map((c) => `<tr><td>${esc(c.key)}</td><td class="r">${m(c.value)}</td></tr>`).join('') || '<tr><td>No costs</td></tr>'
   }</table></div><div><h2>Income by source</h2><table>${
@@ -1296,9 +1310,15 @@ function ReportModal({
           <span>
             Costs <strong>{money(total(rows), settings.currency)}</strong>
           </span>
-          <span className={profit(rows) >= 0 ? 'pos' : 'neg'}>
-            {profit(rows) >= 0 ? 'Profit' : 'Loss'} <strong>{money(profit(rows), settings.currency)}</strong>
-          </span>
+          {incomeOf(expenses).length ? (
+            <span className={profit(rows) >= 0 ? 'pos' : 'neg'}>
+              {profit(rows) >= 0 ? 'Profit' : 'Loss'} <strong>{money(profit(rows), settings.currency)}</strong>
+            </span>
+          ) : (
+            <span>
+              Invested so far <strong>{money(total(rows), settings.currency)}</strong>
+            </span>
+          )}
         </div>
         <p className="muted ex-share-hint">The report opens in a new tab: totals, costs by category, income by source, budgets, recurring items and every entry. Use “Print / Save as PDF” there.</p>
         <div className="ex-form-actions">
