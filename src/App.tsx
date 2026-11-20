@@ -199,6 +199,13 @@ function Home({ userId, email }: { userId: string; email: string }) {
     [select],
   );
 
+  // "Edit profile" from a member card.
+  useEffect(() => {
+    const open = () => setProfileModal(true);
+    window.addEventListener('karlo:edit-profile', open);
+    return () => window.removeEventListener('karlo:edit-profile', open);
+  }, []);
+
   // Clicking a push notification while Karlo is open: the service worker asks this tab to open the card.
   useEffect(() => {
     void registerServiceWorker();

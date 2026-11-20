@@ -43,7 +43,9 @@ import { KanbanView } from './KanbanView';
 import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
-import { Avatar, AvatarStack, download, Menu, Modal, timeAgo } from './ui';
+import { MemberCard, type MemberCardTarget } from './MemberCard';
+import { handleOf } from '../lib/notify';
+import { Avatar, download, Menu, Modal, timeAgo } from './ui';
 
 type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map';
 
@@ -134,6 +136,10 @@ export function BoardPage({
     }
   });
   const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests'>(null);
+  const [memberTarget, setMemberTarget] = useState<MemberCardTarget | null>(null);
+  const [profileOf, setProfileOf] = useState<Person | null>(null);
+  const [activityBy, setActivityBy] = useState<string | null>(null);
+  const openMember = (person: Person, el: HTMLElement) => setMemberTarget({ person, rect: el.getBoundingClientRect() });
   const [customBg, setCustomBg] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [viewsOpen, setViewsOpen] = useState(false);
@@ -253,9 +259,18 @@ export function BoardPage({
 
         <span className="header-spacer" />
         <span className={`sync-status sync-${status}`}>{STATUS_TEXT[status]}</span>
-        <button className="people-btn" onClick={() => setPanel('share')} title="Members">
-          <AvatarStack ids={people.map((p) => p.user_id)} people={peopleMap} max={4} size={28} />
-        </button>
+        <span className="header-people">
+          {people.slice(0, 5).map((p) => (
+            <button key={p.user_id} className="header-avatar" title={p.name} onClick={(e) => openMember(p, e.currentTarget)}>
+              <Avatar id={p.user_id} name={p.name} src={p.avatar_url} size={30} />
+            </button>
+          ))}
+          {people.length > 5 && (
+            <button className="header-avatar more" onClick={() => setPanel('share')} title="All members">
+              +{people.length - 5}
+            </button>
+          )}
+        </span>
         {switcher}
         <button className="btn translucent" onClick={() => setPanel('share')}>
           <UserPlus size={16} /> Share
@@ -411,6 +426,7 @@ export function BoardPage({
       {openCard && data && (
         <CardModal
           key={openCard.id}
+          onPersonClick={(person, el) => openMember(person, el)}
           boardId={meta.id}
           boardTitle={meta.title}
           onOpenCardLink={(b, c) => {
@@ -547,9 +563,20 @@ export function BoardPage({
       )}
 
       {panel === 'activity' && data && (
-        <Modal title="Activity" onClose={closePanel}>
+        <Modal
+          title={activityBy ? `Activity by ${activityBy}` : 'Activity'}
+          onClose={() => {
+            setActivityBy(null);
+            closePanel();
+          }}
+        >
+          {activityBy && (
+            <button className="link-btn activity-all" onClick={() => setActivityBy(null)}>
+              Show everyone’s activity
+            </button>
+          )}
           <ul className="activity">
-            {data.activity.map((a) => (
+            {data.activity.filter((a) => !activityBy || a.by === activityBy).map((a) => (
               <li key={a.id}>
                 <strong>{a.by}</strong>{' '}
                 {a.cardId && data.cards[a.cardId] ? (
@@ -562,8 +589,91 @@ export function BoardPage({
                 <span className="muted">· {timeAgo(a.at)}</span>
               </li>
             ))}
-            {data.activity.length === 0 && <li className="muted">No activity yet.</li>}
+            {data.activity.filter((a) => !activityBy || a.by === activityBy).length === 0 && (
+              <li className="muted">{activityBy ? `${activityBy} hasn’t done anything on this board yet.` : 'No activity yet.'}</li>
+            )}
           </ul>
+        </Modal>
+      )}
+
+      {memberTarget && (
+        <MemberCard
+          target={memberTarget}
+          isMe={memberTarget.person.user_id === me.id}
+          canAddToWorkspace={admin && memberTarget.person.via === 'board' && memberTarget.person.user_id !== me.id}
+          onClose={() => setMemberTarget(null)}
+          onViewProfile={() => {
+            setProfileOf(memberTarget.person);
+            setMemberTarget(null);
+          }}
+          onViewActivity={() => {
+            setActivityBy(memberTarget.person.name);
+            setMemberTarget(null);
+            setPanel('activity');
+          }}
+          onAddToWorkspace={async () => {
+            await api.inviteMember(memberTarget.person.email, 'member', { workspaceId: meta.workspace_id });
+            loadPeople();
+          }}
+          onEditProfile={() => {
+            setMemberTarget(null);
+            window.dispatchEvent(new CustomEvent('karlo:edit-profile'));
+          }}
+        />
+      )}
+
+      {profileOf && data && (
+        <Modal onClose={() => setProfileOf(null)}>
+          {(() => {
+            const p = peopleMap.get(profileOf.user_id) ?? profileOf;
+            const assigned = Object.values(data.cards).filter((c) => !c.archived && c.assignees.includes(p.user_id));
+            const done = assigned.filter((c) => c.completed || c.dueDone).length;
+            return (
+              <div className="profile-view">
+                <div className="profile-view-head">
+                  <Avatar id={p.user_id} name={p.name} src={p.avatar_url} size={96} />
+                  <div>
+                    <h3>{p.name}</h3>
+                    <div className="muted">@{handleOf(p)}</div>
+                    {p.title && <div className="profile-view-title">{p.title}</div>}
+                    <div className="muted">{p.email}</div>
+                    <span className={`role-pill role-${p.role}`}>{ROLE_INFO[p.role].label}</span>
+                  </div>
+                </div>
+                <h4>
+                  Cards on this board ({assigned.length}
+                  {assigned.length ? ` · ${done} done` : ''})
+                </h4>
+                <ul className="profile-cards">
+                  {assigned.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        className="link-btn"
+                        onClick={() => {
+                          setProfileOf(null);
+                          setOpenCardId(c.id);
+                        }}
+                      >
+                        {c.completed ? '✓ ' : ''}
+                        {c.title}
+                      </button>
+                    </li>
+                  ))}
+                  {assigned.length === 0 && <li className="muted">No cards assigned on this board.</li>}
+                </ul>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setActivityBy(p.name);
+                    setProfileOf(null);
+                    setPanel('activity');
+                  }}
+                >
+                  View board activity
+                </button>
+              </div>
+            );
+          })()}
         </Modal>
       )}
 

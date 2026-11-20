@@ -76,6 +76,7 @@ function Popover({ title, onClose, children }: { title: string; onClose: () => v
 }
 
 export function CardModal({
+  onPersonClick,
   boardId,
   boardTitle,
   onOpenCardLink,
@@ -87,6 +88,8 @@ export function CardModal({
   dispatch,
   onClose,
 }: {
+  /** Clicking a member's avatar shows their member card. */
+  onPersonClick?: (person: Person, el: HTMLElement) => void;
   boardId: string;
   boardTitle: string;
   /** Open another Karlo card (from a card link attachment). */
@@ -756,7 +759,13 @@ export function CardModal({
                   <div className="cw-chip-row">
                     {card.assignees.map((id) => {
                       const p = peopleById.get(id);
-                      return <Avatar key={id} id={id} name={p?.name ?? 'Former member'} src={p?.avatar_url} size={32} />;
+                      return p && onPersonClick ? (
+                        <button key={id} className="header-avatar" title={p.name} onClick={(e) => onPersonClick(p, e.currentTarget)}>
+                          <Avatar id={id} name={p.name} src={p.avatar_url} size={32} />
+                        </button>
+                      ) : (
+                        <Avatar key={id} id={id} name={p?.name ?? 'Former member'} src={p?.avatar_url} size={32} />
+                      );
                     })}
                     {card.guests.map((g) => (
                       <Avatar key={g} id={'guest:' + g} name={g} size={32} title={`${g} (imported — link via board menu)`} />
