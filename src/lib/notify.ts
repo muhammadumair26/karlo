@@ -31,6 +31,34 @@ export function mentionedIds(text: string, people: Person[]): string[] {
   return people.filter((p) => handles.has(handleOf(p).toLowerCase())).map((p) => p.user_id);
 }
 
+/**
+ * People newly @mentioned on a card by this change (comment, description or new checklist item)
+ * who aren't members yet — they become responsible for the card.
+ */
+export function newMentionAssignees(before: BoardData, a: BoardActionBody, people: Person[]): string[] {
+  const cardId = 'cardId' in a ? a.cardId : null;
+  const card = cardId ? before.cards[cardId] : undefined;
+  if (!card) return [];
+  let ids: string[] = [];
+  if (a.type === 'ADD_COMMENT') ids = mentionedIds(a.comment.text, people);
+  else if (a.type === 'UPDATE_CARD') {
+    const p = a.patch;
+    if (p.description !== undefined) {
+      const was = new Set(mentionedIds(card.description, people));
+      ids.push(...mentionedIds(p.description, people).filter((id) => !was.has(id)));
+    }
+    if (p.checklist) {
+      const old = new Map(card.checklist.map((i) => [i.id, i.text]));
+      for (const item of p.checklist) {
+        const was = new Set(mentionedIds(old.get(item.id) ?? '', people));
+        ids.push(...mentionedIds(item.text, people).filter((id) => !was.has(id)));
+      }
+    }
+  }
+  const members = new Set([...card.assignees, ...((a.type === 'UPDATE_CARD' && a.patch.assignees) || [])]);
+  return [...new Set(ids)].filter((id) => !members.has(id));
+}
+
 const snippet = (t: string, n = 90) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
 
 type Draft = Omit<NotificationRow, 'id' | 'created_at' | 'read_at' | 'actor' | 'board' | 'actor_id'>;

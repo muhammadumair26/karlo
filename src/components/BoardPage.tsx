@@ -31,7 +31,7 @@ import { hasFilters, NO_FILTERS } from '../lib/filters';
 import type { BoardActionBody } from '../lib/board';
 import { boardToCSV, karloExport } from '../lib/importers';
 import { deleteFiles, pathsOf } from '../lib/files';
-import { markRead, notificationsFor, sendNotifications, type NotificationRow } from '../lib/notify';
+import { markRead, newMentionAssignees, notificationsFor, sendNotifications, type NotificationRow } from '../lib/notify';
 import type { BoardMeta, Me, Person } from '../lib/types';
 import { BACKGROUND_PHOTOS, DUBAI_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
 import { useBoardSync, type SyncStatus } from '../lib/useBoardSync';
@@ -120,6 +120,15 @@ export function BoardPage({
       applyAction(b);
       if (!before) return;
       void sendNotifications(notificationsFor(before, b, me, peopleRef.current, meta.id));
+      // @mentioning someone on a card makes them responsible: add them as a member.
+      // (They already get the "mentioned you" notification, so no extra "added you" one.)
+      const assign = newMentionAssignees(before, b, peopleRef.current);
+      if (assign.length && 'cardId' in b) {
+        const card = before.cards[b.cardId];
+        const names = assign.map((id) => peopleRef.current.find((p) => p.user_id === id)?.name ?? 'someone').join(', ');
+        const base = b.type === 'UPDATE_CARD' && b.patch.assignees ? b.patch.assignees : card.assignees;
+        applyAction({ type: 'UPDATE_CARD', cardId: b.cardId, patch: { assignees: [...base, ...assign] }, note: `added ${names} to {card} (mentioned)` });
+      }
       // Free storage for uploaded files that are no longer referenced.
       if (b.type === 'DELETE_ATTACHMENT') {
         void deleteFiles(pathsOf(before.cards[b.cardId]?.attachments.filter((x) => x.id === b.attachmentId) ?? []));

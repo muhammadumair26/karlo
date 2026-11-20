@@ -40,7 +40,7 @@ import { LabelsEditor } from './LabelsEditor';
 import { MentionInput } from './MentionInput';
 import { Avatar, Menu, Modal, timeAgo } from './ui';
 
-type Pop = null | 'add' | 'labels' | 'dates' | 'members' | 'owners' | 'attachment' | 'priority' | 'location';
+type Pop = null | 'add' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority' | 'location';
 
 /** Renders text with @mentions highlighted and bare links clickable. */
 function RichText({ text }: { text: string }) {
@@ -221,9 +221,8 @@ export function CardModal({
   const canManage = editable && (isOwner || isAdmin);
   const creator = card.createdBy ? peopleById.get(card.createdBy) : undefined;
   const creatorName = creator?.name ?? (card.createdBy === 'import' || !card.createdBy ? 'Imported' : 'Former member');
-  // "Leave card": take yourself off as member and owner (never leave a card with no owner).
-  const onCard = card.assignees.includes(me.id) || isOwner;
-  const soleOwner = isOwner && owners.length === 1;
+  // "Leave card": take yourself off as a member. Ownership (the creator) never changes.
+  const onCard = card.assignees.includes(me.id);
   const toggle = (p: Pop) => setPop(pop === p ? null : p);
   const toggleAssignee = (p: Person) => {
     const on = card.assignees.includes(p.user_id);
@@ -437,37 +436,6 @@ export function CardModal({
                 Remove dates
               </button>
             )}
-          </Popover>
-        );
-      case 'owners':
-        return (
-          <Popover title="Card owners" onClose={() => setPop(null)}>
-            <p className="muted small-hint">Owners are responsible for this card, get its notifications and can delete it.</p>
-            {people.map((p) => {
-              const on = owners.includes(p.user_id);
-              const last = on && owners.length === 1;
-              return (
-                <button
-                  key={p.user_id}
-                  className={`member-option ${on ? 'on' : ''}`}
-                  disabled={last}
-                  title={last ? 'A card needs at least one owner' : undefined}
-                  onClick={() =>
-                    update(
-                      { owners: on ? owners.filter((x) => x !== p.user_id) : [...owners, p.user_id] },
-                      on ? `removed ${p.name} as an owner of {card}` : `made ${p.name} an owner of {card}`,
-                    )
-                  }
-                >
-                  <Avatar id={p.user_id} name={p.name} src={p.avatar_url} size={28} />
-                  <span className="member-option-text">
-                    {p.name}
-                    <span className="muted">@{handleOf(p)}</span>
-                  </span>
-                  {on && <span className="tick">✓</span>}
-                </button>
-              );
-            })}
           </Popover>
         );
       case 'members':
@@ -744,12 +712,9 @@ export function CardModal({
               </button>
               {onCard && (
                 <button
-                  disabled={soleOwner}
-                  title={soleOwner ? "You're the only owner. Add another owner before leaving." : undefined}
                   onClick={() => {
                     setMenu(false);
-                    if (soleOwner) return;
-                    update({ assignees: card.assignees.filter((x) => x !== me.id), owners: owners.filter((x) => x !== me.id) }, 'left {card}');
+                    update({ assignees: card.assignees.filter((x) => x !== me.id) }, 'left {card}');
                   }}
                 >
                   <LogOut size={16} /> Leave card
@@ -852,7 +817,7 @@ export function CardModal({
           )}
 
           {/* chips row: members / labels / dates / priority */}
-          {(owners.length > 0 || canManage || showMembers || cardLabels.length > 0 || showDates || card.priority !== 'none' || card.location) && (
+          {(owners.length > 0 || showMembers || cardLabels.length > 0 || showDates || card.priority !== 'none' || card.location) && (
             <div className="cw-chips">
               <div className="cw-chip-group">
                 <h5>{owners.length > 1 ? 'Owners' : 'Owner'}</h5>
@@ -870,11 +835,6 @@ export function CardModal({
                     );
                   })}
                   {owners.length === 0 && <span className="muted small-hint">No owner</span>}
-                  {canManage && (
-                    <button className="round-add" onMouseDown={(e) => e.stopPropagation()} onClick={() => toggle('owners')} aria-label="Add owner" title="Add or remove owners">
-                      <Plus size={16} />
-                    </button>
-                  )}
                 </div>
               </div>
               {showMembers && (
