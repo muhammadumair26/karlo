@@ -1,5 +1,6 @@
 import { Fingerprint, KeyRound, ShieldCheck, Smartphone, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useBootDone } from '../lib/boot';
 import {
   addPasskey,
   disableTotp,
@@ -211,6 +212,7 @@ export function SecurityModal({ onClose }: { onClose: () => void }) {
 
 /** Shown after a password sign-in when two-step is on: asks for the 6-digit code. */
 export function SecondStepScreen({ onDone }: { onDone: () => void }) {
+  useBootDone();
   const [code, setCode] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);

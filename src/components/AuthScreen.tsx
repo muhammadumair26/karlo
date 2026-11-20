@@ -1,6 +1,7 @@
 import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
 import { friendlyAuthError, passkeysSupported, signInWithPasskey } from '../lib/security';
 import { PoweredBy } from './PoweredBy';
+import { useBootDone } from '../lib/boot';
 import { useState } from 'react';
 import { REMEMBER_KEY, rememberMe, supabase } from '../supabase';
 
@@ -42,6 +43,7 @@ const SUBTITLES: Record<Mode, string> = {
 const SUBMIT: Record<Mode, string> = { signin: 'Sign in', signup: 'Sign up', forgot: 'Send reset link' };
 
 export function AuthScreen() {
+  useBootDone();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState(savedEmail);
   const [password, setPassword] = useState('');
@@ -215,6 +217,7 @@ export function AuthScreen() {
 
 /** Shown after opening an invite or password-reset link. */
 export function SetPasswordScreen({ email, onDone }: { email: string; onDone: () => void }) {
+  useBootDone();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);

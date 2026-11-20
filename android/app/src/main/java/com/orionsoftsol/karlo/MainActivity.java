@@ -15,6 +15,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WebView webView = getBridge().getWebView();
+        // Karlo blue behind the page while it loads, so opening the app never flashes white.
+        webView.setBackgroundColor(0xFF1D4ED8);
         WebSettings settings = webView.getSettings();
         // Passkeys (Face / fingerprint / screen lock) inside the app, through Android's Credential Manager.
         // The website's assetlinks.json lets this app use karlo.orionsoftsol.com passkeys.

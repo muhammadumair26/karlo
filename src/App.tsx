@@ -29,6 +29,7 @@ import type { BoardMeta, Me, Workspace } from './lib/types';
 import { BOARD_COLORS } from './lib/types';
 import { openedFromSetPasswordLink, supabase } from './supabase';
 import { showAlert } from './components/dialog';
+import { hideBoot, useBootDone } from './lib/boot';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -67,6 +68,7 @@ export default function App() {
   }, []);
 
   if (!supabase) {
+    hideBoot();
     return (
       <div className="auth-page">
         <div className="auth-card">
@@ -317,6 +319,10 @@ function Home({ userId, email }: { userId: string; email: string }) {
       void showAlert({ title: 'Something went wrong', message: (e as Error).message, tone: 'danger' });
     }
   };
+
+  useBootDone((!!me && ready) || !!error);
+
+  useBootDone((!!me && ready) || !!error);
 
   if (!me || !ready) {
     return (
