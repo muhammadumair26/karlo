@@ -47,6 +47,7 @@ import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
 import { BoardSettingsModal } from './BoardSettings';
+import { DuePrompt } from './DuePrompt';
 import { ExpensesView } from './ExpensesView';
 import { useExpenses } from '../lib/expenses';
 import { ActivityFeed } from './ActivityFeed';
@@ -116,10 +117,24 @@ export function BoardPage({
   const peopleRef = useRef(people);
   peopleRef.current = people;
 
+  // A card without a due date moving into a list that requires one waits here for a date.
+  const [pendingMove, setPendingMove] = useState<Extract<BoardActionBody, { type: 'MOVE_CARD' }> | null>(null);
+  const allowMove = useRef<string | null>(null);
+
   /** Apply a change, then notify the people it concerns (mentions, card members, newly added). */
   const dispatch = useCallback(
     (b: BoardActionBody) => {
       const before = dataRef.current;
+      if (before && b.type === 'MOVE_CARD' && allowMove.current !== b.cardId) {
+        const to = before.lists[b.toListId];
+        const card = before.cards[b.cardId];
+        const from = Object.values(before.lists).find((l) => l.cardIds.includes(b.cardId));
+        if (to?.requireDue && card && !card.due && from?.id !== to.id) {
+          setPendingMove(b);
+          return;
+        }
+      }
+      allowMove.current = null;
       applyAction(b);
       if (!before) return;
       void sendNotifications(notificationsFor(before, b, me, peopleRef.current, meta.id));
@@ -660,6 +675,20 @@ export function BoardPage({
         </Modal>
       )}
 
+      {pendingMove && data && (
+        <DuePrompt
+          cardTitle={data.cards[pendingMove.cardId]?.title ?? 'this card'}
+          listTitle={data.lists[pendingMove.toListId]?.title ?? 'This list'}
+          onCancel={() => setPendingMove(null)}
+          onConfirm={(due) => {
+            const mv = pendingMove;
+            setPendingMove(null);
+            dispatch({ type: 'UPDATE_CARD', cardId: mv.cardId, patch: { due }, note: `set {card} due ${due}` });
+            allowMove.current = mv.cardId;
+            dispatch(mv);
+          }}
+        />
+      )}
       {panel === 'settings' && data && <BoardSettingsModal data={data} admin={admin} dispatch={dispatch} onClose={closePanel} />}
       {panel === 'labels' && data && (
         <Modal title="Board labels" onClose={closePanel}>

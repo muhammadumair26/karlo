@@ -66,7 +66,7 @@ export function normalize(raw: unknown): BoardData {
   const d = (raw && typeof raw === 'object' ? raw : {}) as Partial<BoardData>;
   const lists: Record<string, List> = {};
   for (const [id, l] of Object.entries(d.lists ?? {})) {
-    lists[id] = { id, title: l.title ?? 'Untitled', cardIds: Array.isArray(l.cardIds) ? l.cardIds : [], archived: !!l.archived };
+    lists[id] = { id, title: l.title ?? 'Untitled', cardIds: Array.isArray(l.cardIds) ? l.cardIds : [], archived: !!l.archived, ...(l.protected ? { protected: true } : {}), ...(l.requireDue ? { requireDue: true } : {}) };
   }
   const cards: Record<string, Card> = {};
   for (const [id, c] of Object.entries(d.cards ?? {})) {
@@ -128,6 +128,7 @@ export type BoardActionBody =
   | { type: 'SET_BACKGROUND'; url: string | null }
   | { type: 'SET_DASHBOARD'; tiles: DashboardTile[] }
   | { type: 'SET_SETTINGS'; settings: BoardSettings; note?: string }
+  | { type: 'SET_LIST_RULES'; listId: string; rules: { protected?: boolean; requireDue?: boolean } }
   | { type: 'MAP_GUEST'; name: string; userId: string | null };
 
 export type BoardAction = BoardActionBody & { meta: ActionMeta };
@@ -165,7 +166,7 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     }
     case 'ARCHIVE_LIST': {
       const l = d.lists[a.listId];
-      if (!l) return d;
+      if (!l || (l.protected && a.archived)) return d; // protected lists stay
       return {
         ...d,
         lists: { ...d.lists, [l.id]: { ...l, archived: a.archived } },
@@ -174,7 +175,7 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     }
     case 'DELETE_LIST': {
       const l = d.lists[a.listId];
-      if (!l) return d;
+      if (!l || l.protected) return d; // protected lists can't be deleted
       const lists = { ...d.lists };
       const cards = { ...d.cards };
       for (const cid of l.cardIds) delete cards[cid];
@@ -287,6 +288,16 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     }
     case 'SET_DASHBOARD':
       return { ...d, dashboard: a.tiles };
+    case 'SET_LIST_RULES': {
+      const l = d.lists[a.listId];
+      if (!l) return d;
+      const next = { ...l, ...a.rules };
+      const what = [
+        a.rules.protected !== undefined ? (a.rules.protected ? 'protected' : 'unprotected') : '',
+        a.rules.requireDue !== undefined ? (a.rules.requireDue ? 'now asks for a due date' : 'no longer asks for a due date') : '',
+      ].filter(Boolean);
+      return { ...d, lists: { ...d.lists, [l.id]: next }, activity: log(d, a, `list “${l.title}” ${what.join(' and ')}`) };
+    }
     case 'SET_SETTINGS':
       return { ...d, settings: a.settings, activity: log(d, a, a.note || 'changed the board settings') };
     case 'SET_BACKGROUND':

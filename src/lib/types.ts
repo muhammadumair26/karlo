@@ -99,6 +99,10 @@ export interface List {
   title: string;
   cardIds: string[];
   archived: boolean;
+  /** Can be renamed but never deleted or archived (e.g. "In progress"). */
+  protected?: boolean;
+  /** Cards need a due date to move into (or be added to) this list. */
+  requireDue?: boolean;
 }
 
 export interface Activity {

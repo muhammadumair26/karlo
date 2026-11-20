@@ -1,4 +1,4 @@
-import { ChevronsLeftRight, ChevronsRightLeft, MoreHorizontal } from 'lucide-react';
+import { CalendarClock, Check, ChevronsLeftRight, ChevronsRightLeft, Lock, MoreHorizontal } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { BoardActionBody } from '../lib/board';
 import { uid } from '../lib/board';
@@ -161,6 +161,16 @@ export function KanbanView({
               ) : (
                 <span className="list-title">{list.title}</span>
               )}
+              {list.protected && (
+                <span className="list-flag" title="Protected list — can be renamed, not deleted">
+                  <Lock size={12} />
+                </span>
+              )}
+              {list.requireDue && (
+                <span className="list-flag" title="Cards need a due date to enter this list">
+                  <CalendarClock size={12} />
+                </span>
+              )}
               <span className="list-count">{filtering ? `${visible.length}/${activeCount}` : activeCount}</span>
               <button className="icon-btn list-icon" title="Collapse list" onClick={() => toggleCollapsed(list.id)}>
                 <ChevronsRightLeft size={16} />
@@ -171,14 +181,39 @@ export function KanbanView({
                     <MoreHorizontal size={16} />
                   </button>
                   <Menu open={menuFor === list.id} onClose={() => setMenuFor(null)}>
-                    <button
-                      onClick={() => {
-                        setMenuFor(null);
-                        dispatch({ type: 'ARCHIVE_LIST', listId: list.id, archived: true });
-                      }}
-                    >
-                      Archive list
-                    </button>
+                    {admin && (
+                      <>
+                        <button
+                          className="menu-check"
+                          onClick={() => {
+                            setMenuFor(null);
+                            dispatch({ type: 'SET_LIST_RULES', listId: list.id, rules: { protected: !list.protected } });
+                          }}
+                        >
+                          <Lock size={15} /> Protect list (rename only) {list.protected && <Check size={15} className="menu-tick" />}
+                        </button>
+                        <button
+                          className="menu-check"
+                          onClick={() => {
+                            setMenuFor(null);
+                            dispatch({ type: 'SET_LIST_RULES', listId: list.id, rules: { requireDue: !list.requireDue } });
+                          }}
+                        >
+                          <CalendarClock size={15} /> Ask for a due date when cards move here {list.requireDue && <Check size={15} className="menu-tick" />}
+                        </button>
+                        <hr />
+                      </>
+                    )}
+                    {!list.protected && (
+                      <button
+                        onClick={() => {
+                          setMenuFor(null);
+                          dispatch({ type: 'ARCHIVE_LIST', listId: list.id, archived: true });
+                        }}
+                      >
+                        Archive list
+                      </button>
+                    )}
                     <button
                       onClick={() => {
                         setMenuFor(null);
@@ -189,6 +224,11 @@ export function KanbanView({
                     >
                       Archive all cards in list
                     </button>
+                    {list.protected ? (
+                      <span className="menu-note">
+                        <Lock size={13} /> Protected — can't be archived or deleted
+                      </span>
+                    ) : (
                     <button
                       className="danger-text"
                       onClick={async () => {
@@ -206,6 +246,7 @@ export function KanbanView({
                     >
                       Delete list
                     </button>
+                    )}
                   </Menu>
                 </span>
               )}
@@ -262,7 +303,7 @@ export function KanbanView({
 
             {canAddCards && (
               <AddCardForm
-                settings={rules}
+                settings={list.requireDue ? { ...rules, requireDue: true } : rules}
                 people={peopleList}
                 meId={meId}
                 onAdd={(title, due, member) => dispatch({ type: 'ADD_CARD', listId: list.id, cardId: uid(), title, due, assignees: member ? [member] : [] })}
