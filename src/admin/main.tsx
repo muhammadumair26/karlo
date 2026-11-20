@@ -11,7 +11,7 @@ import { AdminPanel } from '../components/AdminPanel';
 /* Karlo Admin (admin.orionsoftsol.com): a separate site with its own sign-in, for managing clients.
    Only accounts listed as platform admins get past the sign-in; everyone else is turned away. */
 
-const SITE = 'https://admin.orionsoftsol.com';
+const SITE = window.location.origin + import.meta.env.BASE_URL;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -78,7 +78,7 @@ function SignIn({ initial }: { initial: Mode }) {
       } else {
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        window.history.replaceState(null, '', '/');
+        window.history.replaceState(null, '', import.meta.env.BASE_URL);
         window.location.reload();
       }
     } catch (x) {
