@@ -1,8 +1,8 @@
-import { CheckSquare, FileText, ListChecks, Loader2, Sparkles } from 'lucide-react';
+import { CheckSquare, FileText, ListChecks, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { uid, type BoardActionBody } from '../lib/board';
 import type { Card, Me } from '../lib/types';
-import { supabase } from '../supabase';
+import { betterDescription, checklistSteps, summarise } from '../lib/cardHelp';
 import { Modal } from './ui';
 
 type Action = 'summary' | 'checklist' | 'describe';
@@ -17,43 +17,41 @@ const ACTIONS: { id: Action; label: string; hint: string; Icon: typeof Sparkles 
   { id: 'describe', label: 'Improve the description', hint: 'Clear goal, details, acceptance criteria', Icon: Sparkles },
 ];
 
-async function askAI(action: Action, boardId: string, cardId: string): Promise<Result> {
-  if (!supabase) throw new Error('Not connected');
-  const { data, error } = await supabase.functions.invoke('ai', { body: { action, boardId, cardId } });
-  if (error) {
-    // Read the function's friendly message when there is one.
-    let msg = error.message;
-    try {
-      const body = await (error as { context?: Response }).context?.json();
-      if (body?.message) msg = body.message;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(msg);
-  }
-  return data as Result;
+/** Runs on the device: free and instant, nothing is sent anywhere. */
+function help(action: Action, card: Card, listTitle: string | undefined, names: (id: string) => string): Result {
+  if (action === 'summary') return { action, result: summarise(card, { listTitle, names }) };
+  if (action === 'checklist') return { action, result: { items: checklistSteps(card) } };
+  return { action, result: { description: betterDescription(card) } };
 }
 
-/** "AI" button in the card window: summary, checklist, better description — each with an Apply step. */
-export function CardAI({ boardId, card, me, editable, dispatch }: { boardId: string; card: Card; me: Me; editable: boolean; dispatch: (a: BoardActionBody) => void }) {
+/** "Smart help" button in the card window: summary, checklist, better description — each with an Apply step. */
+export function CardAI({
+  card,
+  me,
+  editable,
+  dispatch,
+  listTitle,
+  names,
+}: {
+  card: Card;
+  me: Me;
+  editable: boolean;
+  dispatch: (a: BoardActionBody) => void;
+  listTitle?: string;
+  names: (id: string) => string;
+}) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState<Action | null>(null);
   const [res, setRes] = useState<Result | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [picked, setPicked] = useState<boolean[]>([]);
 
-  const run = async (a: Action) => {
-    setBusy(a);
+  const run = (a: Action) => {
     setErr(null);
-    setRes(null);
-    try {
-      const r = await askAI(a, boardId, card.id);
-      setRes(r);
-      if (r.action === 'checklist') setPicked(r.result.items.map(() => true));
-    } catch (e) {
-      setErr((e as Error).message);
-    }
-    setBusy(null);
+    const r = help(a, card, listTitle, names);
+    if (r.action === 'checklist' && !r.result.items.length) return setErr('Every suggested step is already on the checklist.');
+    if (r.action === 'describe' && r.result.description === card.description.trim()) return setErr('The description is already set out this way.');
+    setRes(r);
+    if (r.action === 'checklist') setPicked(r.result.items.map(() => true));
   };
 
   const close = () => {
@@ -68,33 +66,33 @@ export function CardAI({ boardId, card, me, editable, dispatch }: { boardId: str
       dispatch({
         type: 'ADD_COMMENT',
         cardId: card.id,
-        comment: { id: uid(), authorId: me.id, authorName: me.name, text: `✨ AI summary\n\n${res.result.summary}\n\nNext step: ${res.result.next_step}`, createdAt: Date.now() },
+        comment: { id: uid(), authorId: me.id, authorName: me.name, text: `📝 Summary\n\n${res.result.summary}\n\nNext step: ${res.result.next_step}`, createdAt: Date.now() },
       });
     } else if (res.action === 'checklist') {
       const add = res.result.items.filter((_, i) => picked[i]).map((text) => ({ id: uid(), text, done: false }));
-      if (add.length) dispatch({ type: 'UPDATE_CARD', cardId: card.id, patch: { checklist: [...card.checklist, ...add] }, note: `added ${add.length} AI checklist item${add.length > 1 ? 's' : ''} to {card}` });
+      if (add.length) dispatch({ type: 'UPDATE_CARD', cardId: card.id, patch: { checklist: [...card.checklist, ...add] }, note: `added ${add.length} suggested checklist item${add.length > 1 ? 's' : ''} to {card}` });
     } else {
-      dispatch({ type: 'UPDATE_CARD', cardId: card.id, patch: { description: res.result.description }, note: 'improved the description of {card} with AI' });
+      dispatch({ type: 'UPDATE_CARD', cardId: card.id, patch: { description: res.result.description }, note: 'tidied the description of {card}' });
     }
     close();
   };
 
   return (
     <>
-      <button className="cw-btn cw-ai" onClick={() => setOpen(true)} title="AI help for this card">
-        <Sparkles size={16} /> AI
+      <button className="cw-btn cw-ai" onClick={() => setOpen(true)} title="Summary, checklist and description help — free, works on your device">
+        <Sparkles size={16} /> Smart help
       </button>
       {open && (
-        <Modal title="AI help" onClose={close}>
+        <Modal title="Smart help" onClose={close}>
           <div className="ex-form ai">
             {!res && (
               <div className="ai-actions">
                 {ACTIONS.map((a) => (
-                  <button key={a.id} className="ai-action" disabled={!!busy} onClick={() => run(a.id)}>
-                    {busy === a.id ? <Loader2 size={18} className="spin" /> : <a.Icon size={18} />}
+                  <button key={a.id} className="ai-action" onClick={() => run(a.id)}>
+                    <a.Icon size={18} />
                     <span>
                       <strong>{a.label}</strong>
-                      <span className="muted">{busy === a.id ? 'Thinking…' : a.hint}</span>
+                      <span className="muted">{a.hint}</span>
                     </span>
                   </button>
                 ))}
@@ -152,7 +150,7 @@ export function CardAI({ boardId, card, me, editable, dispatch }: { boardId: str
                 )}
               </div>
             )}
-            <p className="muted ai-note">AI can make mistakes — check before you apply. Only this card's details are sent.</p>
+            <p className="muted ai-note">Free — works on your device, nothing is sent anywhere. Check the suggestion before you apply it.</p>
           </div>
         </Modal>
       )}

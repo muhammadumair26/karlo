@@ -1238,7 +1238,7 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 .ex-setup > svg, .ex-setup > h3 { align-self: center; }
 .ex-setup-list { display: flex; flex-direction: column; gap: 2px; }
 .ex-setup-list .member-option { display: flex; align-items: center; gap: 8px; }
-.ex-form { display: flex; flex-direction: column; gap: 12px; min-width: min(440px, 80vw); }
+.ex-form { display: flex; flex-direction: column; gap: 12px; min-width: min(440px, 100%); }
 .ex-form .auth-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .ex-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ex-form .pop-field input, .ex-form .pop-field select { font-size: 14px; padding: 8px; }

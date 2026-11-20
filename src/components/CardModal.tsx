@@ -828,7 +828,14 @@ export function CardModal({
               <button className={`cw-btn ${pop === 'attachment' ? 'on' : ''}`} onClick={() => toggle('attachment')}>
                 <Paperclip size={16} /> Attachment
               </button>
-              <CardAI boardId={boardId} card={card} me={me} editable={editable} dispatch={dispatch} />
+              <CardAI
+                card={card}
+                me={me}
+                editable={editable}
+                dispatch={dispatch}
+                listTitle={listId ? data.lists[listId]?.title : undefined}
+                names={(id) => people.find((p) => p.user_id === id)?.name ?? ''}
+              />
               {expenseState?.settings && (
                 <button className="cw-btn" onClick={() => setAddingExpense(true)} title="Record money spent on this card (partners only)">
                   <Wallet size={16} /> Expense
