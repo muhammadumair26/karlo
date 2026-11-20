@@ -1,4 +1,4 @@
-import { ArrowLeft, Building2, Check, Copy, Plus, RefreshCw, Search } from 'lucide-react';
+import { Building2, Check, Copy, LogOut, Plus, RefreshCw, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ClientRow } from '../lib/api';
 import * as api from '../lib/api';
@@ -50,7 +50,7 @@ function StatePill({ c }: { c: ClientRow }) {
 }
 
 /** The owner's panel for renting Karlo out: every client workspace, its plan, usage and dates. */
-export function AdminPanel({ onClose }: { onClose: () => void }) {
+export function AdminPanel({ account, onSignOut }: { account: string; onSignOut: () => void }) {
   const [rows, setRows] = useState<ClientRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState('');
@@ -99,9 +99,6 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="adm">
       <div className="adm-head">
-        <button className="icon-btn adm-back" onClick={onClose} title="Back to boards" aria-label="Back to boards">
-          <ArrowLeft size={18} />
-        </button>
         <div>
           <h2>Clients</h2>
           <p className="muted">Every client gets their own workspace. You see their numbers, never their boards.</p>
@@ -112,6 +109,9 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
         </button>
         <button className="btn primary" onClick={() => setCreating(true)}>
           <Plus size={15} /> New client
+        </button>
+        <button className="icon-btn adm-signout" onClick={onSignOut} title={`Signed in as ${account} — sign out`} aria-label="Sign out">
+          <LogOut size={16} />
         </button>
       </div>
 
