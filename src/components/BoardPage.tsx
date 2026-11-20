@@ -694,15 +694,16 @@ export function BoardPage({
         </Modal>
       )}
 
-      {data && editable && (
+      {data && (
         <VoiceAssistant
           boardId={meta.id}
           data={data}
           people={people.filter((p) => p.role !== 'viewer')}
           me={me}
-          canAddCards={boardSettings(data).addCards === 'editors' || admin}
+          canAddCards={editable && (boardSettings(data).addCards === 'editors' || admin)}
           money={expenseState.allowed ? expenseState.settings : null}
           dispatch={dispatch}
+          onOpenCard={setOpenCardId}
         />
       )}
       {customizeViews && (

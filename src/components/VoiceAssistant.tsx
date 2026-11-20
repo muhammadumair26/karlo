@@ -5,24 +5,11 @@ import { uid, type BoardActionBody } from '../lib/board';
 import { CATEGORIES, CURRENCIES, fetchRate, INCOME_CATEGORIES, saveExpense, type ExpenseSettings } from '../lib/expenses';
 import { boardSettings, type BoardData, type Me, type Person } from '../lib/types';
 import { isNativeApp } from '../lib/platform';
-import { supabase } from '../supabase';
+import { parseVoice, type VoiceIntent } from '../lib/voiceParse';
 import { SpeechRecognition as NativeSpeech } from '@capacitor-community/speech-recognition';
 import { showAlert } from './dialog';
 
-type Intent = {
-  intent: 'add_card' | 'add_expense' | 'add_income' | 'unknown';
-  title: string;
-  list: string;
-  due: string;
-  member: string;
-  description: string;
-  amount: number;
-  currency: string;
-  category: string;
-  date: string;
-  paid_by: 'me' | 'company' | '';
-  reply: string;
-};
+type Intent = VoiceIntent;
 
 // The browser's speech-to-text (Chrome, Edge, Safari). Not in every browser or app webview.
 type Rec = { lang: string; interimResults: boolean; continuous: boolean; start(): void; stop(): void; onresult: ((e: any) => void) | null; onend: (() => void) | null; onerror: ((e: any) => void) | null }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -36,23 +23,7 @@ const today = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-async function understand(boardId: string, text: string): Promise<Intent> {
-  if (!supabase) throw new Error('Not connected');
-  const { data, error } = await supabase.functions.invoke('ai', { body: { action: 'voice', boardId, text, today: today() } });
-  if (error) {
-    let msg = error.message;
-    try {
-      const body = await (error as { context?: Response }).context?.json();
-      if (body?.message) msg = body.message;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(msg);
-  }
-  return (data as { result: Intent }).result;
-}
-
-/** Floating mic: say (or type) what to add — a card, a cost or income — then confirm. */
+/** Floating mic: say (or type) what to add — a card, a cost or income — or a card to find. Understood on the device: free, no AI service. */
 export function VoiceAssistant({
   boardId,
   data,
@@ -61,6 +32,7 @@ export function VoiceAssistant({
   canAddCards,
   money,
   dispatch,
+  onOpenCard,
 }: {
   boardId: string;
   data: BoardData;
@@ -69,6 +41,7 @@ export function VoiceAssistant({
   canAddCards: boolean;
   money: ExpenseSettings | null;
   dispatch: (a: BoardActionBody) => void;
+  onOpenCard: (cardId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [listening, setListening] = useState(false);
@@ -175,7 +148,11 @@ export function VoiceAssistant({
     setBusy(true);
     setErr(null);
     try {
-      const r = await understand(boardId, t);
+      const r = parseVoice(t, { lists: lists.map((l) => l.title), people: people.map((p) => p.name) });
+      if (r.intent === 'add_card' && !canAddCards) {
+        r.intent = 'unknown';
+        r.reply = "You can't add cards on this board. Try “Find …” to search.";
+      }
       // Fill sensible defaults the app knows best.
       if (r.intent === 'add_card' && !listByName(r.list)) r.list = lists[0]?.title ?? '';
       if (r.intent !== 'add_card' && r.intent !== 'unknown') {
@@ -203,6 +180,28 @@ export function VoiceAssistant({
   );
 
   const set = (p: Partial<Intent>) => it && setIt({ ...it, ...p });
+  const found = (() => {
+    if (!it || it.intent !== 'search') return [];
+    const listOf = new Map<string, string>();
+    for (const l of lists) for (const c of l.cardIds) listOf.set(c, l.title);
+    const all = [...listOf.keys()].map((id) => data.cards[id]).filter((c) => c && !c.archived);
+    if (it.query === '@me') return all.filter((c) => c.assignees.includes(me.id) || (!c.assignees.length && c.owners?.includes(me.id))).map((c) => ({ c, list: listOf.get(c.id)! })).slice(0, 30);
+    const q = it.query.toLowerCase();
+    const words = q.split(/\s+/).filter((w) => w.length > 1);
+    const inList = lists.find((l) => l.title.toLowerCase() === q.replace(/\s*(list|column)$/, ''));
+    const scored = all
+      .map((c) => {
+        if (inList && listOf.get(c.id) === inList.title) return { c, score: 50 };
+        const hay = `${c.title} ${c.description}`.toLowerCase();
+        let score = c.title.toLowerCase().includes(q) ? 100 : 0;
+        for (const w of words) if (hay.includes(w)) score += c.title.toLowerCase().includes(w) ? 10 : 3;
+        else if (w.length > 3 && hay.includes(w.slice(0, -1))) score += 2;
+        return { c, score };
+      })
+      .filter((x) => x.score >= Math.max(3, words.length * 3 - 3))
+      .sort((a, b) => b.score - a.score);
+    return scored.slice(0, 30).map(({ c }) => ({ c, list: listOf.get(c.id)! }));
+  })();
   const rules = boardSettings(data);
   const list = it ? listByName(it.list) : undefined;
   const needDue = !!it && it.intent === 'add_card' && (rules.requireDue || !!list?.requireDue) && !it.due;
@@ -256,11 +255,9 @@ export function VoiceAssistant({
     }
   };
 
-  if (!canAddCards && !money) return null;
-
   return (
     <>
-      <button className="va-fab" onClick={() => (setOpen(true), supported ? listen() : setTyping(true))} title="Voice assistant: add a card, cost or income" aria-label="Voice assistant">
+      <button className="va-fab" onClick={() => (setOpen(true), supported ? listen() : setTyping(true))} title="Voice assistant: add or find cards, costs and income" aria-label="Voice assistant">
         <Mic size={22} />
       </button>
       {open &&
@@ -276,7 +273,7 @@ export function VoiceAssistant({
                     {busy ? <Loader2 size={30} className="spin" /> : listening ? <Mic size={30} /> : supported ? <Mic size={30} /> : <MicOff size={30} />}
                   </button>
                   <p className="va-status">
-                    {busy ? 'Working it out…' : listening ? 'Listening… speak now' : supported ? 'Tap the mic and say what to add' : 'Voice isn’t available here — type instead'}
+                    {busy ? 'Working it out…' : listening ? 'Listening… speak now' : supported ? 'Tap the mic and say what to add or find' : 'Voice isn’t available here — type instead'}
                   </p>
                   {text && !typing && <p className="va-heard">“{text}”</p>}
                   {(typing || !supported) && (
@@ -287,7 +284,7 @@ export function VoiceAssistant({
                         void submit(text);
                       }}
                     >
-                      <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Expense 39 dollars Shopify, software" />
+                      <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. Find logo · Expense 39 dollars Shopify" />
                       <button className="btn primary" disabled={busy || !text.trim()} aria-label="Send">
                         <Send size={15} />
                       </button>
@@ -299,7 +296,8 @@ export function VoiceAssistant({
                     </button>
                   )}
                   <div className="va-examples">
-                    {canAddCards && <span>“Add a task: fix the checkout page, due Friday, assign Zeeshan”</span>}
+                    <span>“Find logo design” · “Show my tasks”</span>
+                    {canAddCards && <span>“Add task fix the checkout page, due Friday, assign Zeeshan”</span>}
                     {money && <span>“Expense 39 dollars for Shopify, software”</span>}
                     {money && <span>“Income 5,000 dirhams from wholesale order”</span>}
                   </div>
@@ -309,6 +307,21 @@ export function VoiceAssistant({
               {it && (
                 <div className="va-confirm">
                   <p className="va-reply">{it.reply}</p>
+                  {it.intent === 'search' && (
+                    <div className="va-results">
+                      {found.length === 0 && <p className="muted">No cards found. Try other words.</p>}
+                      {found.map(({ c, list: ln }) => (
+                        <button key={c.id} className="va-result" onClick={() => (close(), onOpenCard(c.id))}>
+                          <span className="va-result-title">{c.title}</span>
+                          <span className="va-result-meta">
+                            {ln}
+                            {c.due ? ` · due ${c.due}` : ''}
+                            {c.completed ? ' · done' : ''}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {it.intent === 'add_card' && canAddCards && (
                     <div className="va-fields">
                       <label>
@@ -387,7 +400,7 @@ export function VoiceAssistant({
                     <button className="btn kd-cancel" onClick={() => (reset(), supported && !typing ? listen() : setTyping(true))}>
                       Try again
                     </button>
-                    {it.intent !== 'unknown' && (
+                    {it.intent !== 'unknown' && it.intent !== 'search' && (
                       <button
                         className="btn primary"
                         disabled={busy || (it.intent === 'add_card' ? !canAddCards || !list || !it.title.trim() || needDue || needMember : !(it.amount > 0))}
