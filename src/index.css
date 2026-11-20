@@ -1352,3 +1352,14 @@ td.ex-in strong { color: #216e4e; }
   .ex-fx-result { padding-bottom: 0; }
 }
 .ex-invested .stat-num { color: #172b4d; }
+/* money list: never squeezed by the page; pagination */
+.expenses > * { flex-shrink: 0; }
+.expenses .ex-table-card .tv-scroll { flex: none; overflow-x: auto; overflow-y: visible; }
+.ex-pager { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid #ebecf0; font-size: 13px; }
+.ex-pager-size { display: inline-flex; align-items: center; gap: 6px; color: #44546f; }
+.ex-pages { display: inline-flex; align-items: center; gap: 2px; flex-wrap: wrap; }
+.ex-pages .btn { min-width: 30px; height: 30px; padding: 0 8px; }
+.ex-pages .btn:disabled { opacity: .4; cursor: default; }
+.ex-pnum.on { background: #0c66e4; color: #fff; }
+.ex-gap { padding: 0 4px; color: #626f86; }
+@media (max-width: 600px) { .ex-pager .header-spacer { display: none; } .ex-pages { width: 100%; justify-content: center; } }

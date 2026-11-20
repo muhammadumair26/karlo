@@ -98,6 +98,21 @@ function Amount({ e, main, sign }: { e: Pick<Expense, 'amount' | 'currency' | 'f
   );
 }
 
+const PAGE_KEY = 'karlo-money-page-size';
+
+/** Page buttons like 1 … 4 5 6 … 12 (0 = gap). */
+export function pageNumbers(cur: number, total: number): number[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const set = new Set([1, total, cur - 1, cur, cur + 1].filter((n) => n >= 1 && n <= total));
+  const list = [...set].sort((a, b) => a - b);
+  const out: number[] = [];
+  list.forEach((n, i) => {
+    if (i && n - list[i - 1] > 1) out.push(0);
+    out.push(n);
+  });
+  return out;
+}
+
 // ---------------------------------------------------------------- the view
 
 export function ExpensesView({
@@ -129,6 +144,23 @@ export function ExpensesView({
   const [payer, setPayer] = useState('');
   const [type, setType] = useState<'' | 'expense' | 'income'>('');
   const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSizeState] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem(PAGE_KEY)) || 10;
+    } catch {
+      return 10;
+    }
+  });
+  const setPageSize = (n: number) => {
+    setPageSizeState(n);
+    setPage(1);
+    try {
+      localStorage.setItem(PAGE_KEY, String(n));
+    } catch {
+      /* ignore */
+    }
+  };
 
   if (!loaded) return <div className="dashboard"><div className="ex-empty">Loading money…</div></div>;
   if (!settings) return <ExpenseSetup boardId={boardId} isOwner={isOwner} people={people} me={me} />;
@@ -155,6 +187,11 @@ export function ExpensesView({
       (!ql || `${e.title} ${e.note} ${e.category} ${e.currency ?? ''}`.toLowerCase().includes(ql)),
   );
   const filtered = !!(month || category || payer || type || ql);
+  // Pagination (any filter change goes back to page 1 — see the filter setters below).
+  const pages = Math.max(1, Math.ceil(shown.length / pageSize));
+  const curPage = Math.min(page, pages);
+  const firstRow = (curPage - 1) * pageSize;
+  const pageRows = shown.slice(firstRow, firstRow + pageSize);
 
   const spent = total(shown);
   const earned = incomeTotal(shown);
@@ -358,7 +395,7 @@ export function ExpensesView({
           {byCat.length ? (
             <div className="ex-hbars">
               {byCat.map((c) => (
-                <button key={c.key} className={`ex-hbar ${category === c.key ? 'on' : ''}`} onClick={() => setCategory(category === c.key ? '' : c.key)} title={`${c.key}: ${money(c.value, cur)} — click to filter`}>
+                <button key={c.key} className={`ex-hbar ${category === c.key ? 'on' : ''}`} onClick={() => (setCategory(category === c.key ? '' : c.key), setPage(1))} title={`${c.key}: ${money(c.value, cur)} — click to filter`}>
                   <span className="ex-hbar-label">{c.key}</span>
                   <span className="ex-hbar-track">
                     <span className="ex-hbar-fill" style={{ width: `${(c.value / maxCat) * 100}%` }} />
@@ -387,7 +424,7 @@ export function ExpensesView({
               <button
                 key={m.month}
                 className={`ex-vbar ${month === m.month ? 'on' : ''}`}
-                onClick={() => setMonth(month === m.month ? '' : m.month)}
+                onClick={() => (setMonth(month === m.month ? '' : m.month), setPage(1))}
                 title={`${monthLabel(m.month, true)} — costs ${money(m.spend, cur)}${hasIncome ? `, income ${money(m.income, cur)}, ${m.income - m.spend >= 0 ? 'profit' : 'loss'} ${money(Math.abs(m.income - m.spend), cur)}` : ''} · click to filter`}
               >
                 <span className="ex-vbar-col">
@@ -450,14 +487,14 @@ export function ExpensesView({
         <div className="ex-filters">
           <label className="ex-search">
             <Search size={15} />
-            <input placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
+            <input placeholder="Search" value={q} onChange={(e) => (setQ(e.target.value), setPage(1))} />
           </label>
-          <select className="field-select" value={type} onChange={(e) => setType(e.target.value as typeof type)} aria-label="Type">
+          <select className="field-select" value={type} onChange={(e) => (setType(e.target.value as typeof type), setPage(1))} aria-label="Type">
             <option value="">Income & costs</option>
             <option value="expense">Costs only</option>
             <option value="income">Income only</option>
           </select>
-          <select className="field-select" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">
+          <select className="field-select" value={month} onChange={(e) => (setMonth(e.target.value), setPage(1))} aria-label="Month">
             <option value="">All months</option>
             {months.map((m) => (
               <option key={m} value={m}>
@@ -465,13 +502,13 @@ export function ExpensesView({
               </option>
             ))}
           </select>
-          <select className="field-select" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category">
+          <select className="field-select" value={category} onChange={(e) => (setCategory(e.target.value), setPage(1))} aria-label="Category">
             <option value="">All categories</option>
             {cats.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>
-          <select className="field-select" value={payer} onChange={(e) => setPayer(e.target.value)} aria-label="Paid by">
+          <select className="field-select" value={payer} onChange={(e) => (setPayer(e.target.value), setPage(1))} aria-label="Paid by">
             <option value="">Anyone</option>
             {partnerIds.map((id) => (
               <option key={id} value={id}>
@@ -481,7 +518,7 @@ export function ExpensesView({
             <option value="company">Company account</option>
           </select>
           {filtered && (
-            <button className="btn ghost small" onClick={() => (setMonth(''), setCategory(''), setPayer(''), setType(''), setQ(''))}>
+            <button className="btn ghost small" onClick={() => (setMonth(''), setCategory(''), setPayer(''), setType(''), setQ(''), setPage(1))}>
               <X size={14} /> Clear
             </button>
           )}
@@ -499,7 +536,7 @@ export function ExpensesView({
               </tr>
             </thead>
             <tbody>
-              {shown.map((e) => (
+              {pageRows.map((e) => (
                 <tr key={e.id} className={e.kind === 'settlement' ? 'ex-row-settle' : e.kind === 'income' ? 'ex-row-income' : ''}>
                   <td className="muted">{shortDate(e.spent_on)}</td>
                   <td>
@@ -562,6 +599,49 @@ export function ExpensesView({
             </tbody>
           </table>
         </div>
+        {shown.length > 0 && (
+          <div className="ex-pager">
+            <span className="muted">
+              Showing {firstRow + 1}–{Math.min(firstRow + pageSize, shown.length)} of {shown.length}
+            </span>
+            <label className="ex-pager-size">
+              Rows per page
+              <select className="field-select" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="header-spacer" />
+            <nav className="ex-pages" aria-label="Pages">
+              <button className="btn ghost small" disabled={curPage <= 1} onClick={() => setPage(1)} aria-label="First page" title="First page">
+                «
+              </button>
+              <button className="btn ghost small" disabled={curPage <= 1} onClick={() => setPage(curPage - 1)}>
+                ‹ Prev
+              </button>
+              {pageNumbers(curPage, pages).map((n, i) =>
+                n === 0 ? (
+                  <span key={'gap' + i} className="ex-gap">
+                    …
+                  </span>
+                ) : (
+                  <button key={n} className={`btn small ex-pnum ${n === curPage ? 'on' : 'ghost'}`} onClick={() => setPage(n)} aria-current={n === curPage ? 'page' : undefined}>
+                    {n}
+                  </button>
+                ),
+              )}
+              <button className="btn ghost small" disabled={curPage >= pages} onClick={() => setPage(curPage + 1)}>
+                Next ›
+              </button>
+              <button className="btn ghost small" disabled={curPage >= pages} onClick={() => setPage(pages)} aria-label="Last page" title="Last page">
+                »
+              </button>
+            </nav>
+          </div>
+        )}
       </div>
 
       {form && (
