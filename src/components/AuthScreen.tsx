@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Fingerprint } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
 import { friendlyAuthError, passkeysSupported, signInWithPasskey } from '../lib/security';
 import { PoweredBy } from './PoweredBy';
 import { useState } from 'react';
@@ -156,8 +156,10 @@ export function AuthScreen() {
         )}
         {error && <div className="auth-error">{error}</div>}
         {info && <div className="auth-info">{info}</div>}
-        <button className="btn primary" type="submit" disabled={busy}>
-          {busy ? 'Please wait…' : SUBMIT[mode]}
+        <button className="auth-submit" type="submit" disabled={busy}>
+          {busy ? <Loader2 size={18} className="spin" /> : null}
+          <span>{busy ? 'Please wait…' : SUBMIT[mode]}</span>
+          {!busy && <ArrowRight size={18} className="auth-submit-arrow" />}
         </button>
         {mode === 'signin' && passkeysSupported() && (
           <>
@@ -256,8 +258,9 @@ export function SetPasswordScreen({ email, onDone }: { email: string; onDone: ()
           onChange={(e) => setConfirm(e.target.value)}
         />
         {error && <div className="auth-error">{error}</div>}
-        <button className="btn primary" type="submit" disabled={busy}>
-          {busy ? 'Saving…' : 'Save password'}
+        <button className="auth-submit" type="submit" disabled={busy}>
+          {busy ? <Loader2 size={18} className="spin" /> : null}
+          <span>{busy ? 'Saving…' : 'Save password'}</span>
         </button>
       </form>
     </div>
