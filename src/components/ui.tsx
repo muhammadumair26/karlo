@@ -65,11 +65,16 @@ export function Modal({
   onClose,
   children,
   wide,
+  bare,
+  className,
 }: {
   title?: ReactNode;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  /** No padding and no built-in close button (the content draws its own). */
+  bare?: boolean;
+  className?: string;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -79,10 +84,16 @@ export function Modal({
   // Rendered at the page root so it always sits above the top bar, sidebar and board.
   return createPortal(
     <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className={`modal ${wide ? 'wide' : ''}`} onMouseDown={(e) => e.stopPropagation()} role="dialog">
-        <button className="modal-close" onClick={onClose} aria-label="Close">
-          ✕
-        </button>
+      <div
+        className={`modal ${wide ? 'wide' : ''} ${bare ? 'bare' : ''} ${className ?? ''}`}
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+      >
+        {!bare && (
+          <button className="modal-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        )}
         {title && <h3 className="modal-heading">{title}</h3>}
         {children}
       </div>
