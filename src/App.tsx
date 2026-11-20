@@ -20,6 +20,7 @@ import { karloExport } from './lib/importers';
 import { startPresence } from './lib/presence';
 import { loadPrefs } from './lib/prefs';
 import { isNativeApp } from './lib/platform';
+import { takePendingLink } from './lib/native';
 import { registerServiceWorker } from './lib/push';
 import { parseCardLink } from './lib/recent';
 import type { BoardMeta, Me, Workspace } from './lib/types';
@@ -258,11 +259,18 @@ function Home({ userId, email }: { userId: string; email: string }) {
   useEffect(() => {
     const onOpen = (e: Event) => {
       const { boardId, cardId } = (e as CustomEvent<{ boardId: string; cardId: string }>).detail;
+      takePendingLink(); // handled now
       openFromAnywhere(boardId, cardId);
     };
     window.addEventListener('karlo:open', onOpen);
     return () => window.removeEventListener('karlo:open', onOpen);
   }, [openFromAnywhere]);
+  // A link that opened the phone app before the boards were loaded.
+  useEffect(() => {
+    if (!ready) return;
+    const l = takePendingLink();
+    if (l) openFromAnywhere(l.boardId, l.cardId);
+  }, [ready, openFromAnywhere]);
   useEffect(() => {
     if (!ready) return;
     const q = new URLSearchParams(window.location.search);

@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.orionsoftsol.karlo",
+      "sha256_cert_fingerprints": ["1D:15:75:24:EA:09:5E:02:85:15:BC:35:57:84:F9:99:FF:8A:C4:AC:6B:13:F0:B5:B7:62:AA:43:77:85:46:E9"]
+    }
+  }
+]
