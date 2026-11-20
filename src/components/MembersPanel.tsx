@@ -6,6 +6,7 @@ import { ROLE_INFO } from '../lib/types';
 import { publicOrigin } from '../lib/platform';
 import { Wallet } from 'lucide-react';
 import { Avatar, RoleSelect } from './ui';
+import { askConfirm } from './dialog';
 
 /** Member list + invite form for a workspace or a single board. */
 export function MembersPanel({
@@ -47,7 +48,13 @@ export function MembersPanel({
   const hasExpenseAccess = (id: string) => expenses.length > 0 && expenses.every((s) => s.partners.some((p) => p.id === id));
   const toggleExpenses = async (p: Person) => {
     const on = !hasExpenseAccess(p.user_id);
-    if (on && !confirm(`Give ${p.name} access to expenses${isBoard ? ' on this board' : ` on ${expenses.length} board${expenses.length > 1 ? 's' : ''} in this workspace`}? They will see every cost and receipt.`)) return;
+    const where = isBoard ? 'this board' : `${expenses.length} board${expenses.length > 1 ? 's' : ''} in this workspace`;
+    const ok = await askConfirm(
+      on
+        ? { title: `Give ${p.name} access to expenses?`, message: <>They'll be able to see and add every cost and receipt on {where}. They won't share costs unless you change their share in <strong>Budget &amp; settings</strong>.</>, confirmLabel: 'Give access', tone: 'access' }
+        : { title: `Remove ${p.name}'s access to expenses?`, message: `They'll no longer see costs or receipts on ${where}.`, confirmLabel: 'Remove access', tone: 'danger' },
+    );
+    if (!ok) return;
     setExpBusy(p.user_id);
     setMsg(null);
     try {
@@ -104,7 +111,7 @@ export function MembersPanel({
   };
 
   const change = async (p: Person, r: Role | 'remove') => {
-    if (r === 'remove' && !confirm(`Remove ${p.name} from this ${isBoard ? 'board' : 'workspace'}?`)) return;
+    if (r === 'remove' && !(await askConfirm({ title: `Remove ${p.name}?`, message: `They'll lose access to this ${isBoard ? 'board' : 'workspace and its boards'} until invited again.`, confirmLabel: 'Remove', tone: 'danger' }))) return;
     try {
       await api.updateMember(p.user_id, r, target);
       await reload();

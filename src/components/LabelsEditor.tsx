@@ -1,6 +1,7 @@
 import { uid } from '../lib/board';
 import type { Label } from '../lib/types';
 import { LABEL_COLORS } from '../lib/types';
+import { askConfirm } from './dialog';
 
 export function LabelsEditor({ labels, onChange }: { labels: Label[]; onChange: (labels: Label[]) => void }) {
   const set = (id: string, patch: Partial<Label>) => onChange(labels.map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -28,7 +29,7 @@ export function LabelsEditor({ labels, onChange }: { labels: Label[]; onChange: 
           />
           <button
             className="btn ghost small"
-            onClick={() => confirm(`Delete label "${l.name || l.color}" from all cards?`) && onChange(labels.filter((x) => x.id !== l.id))}
+            onClick={async () => (await askConfirm({ title: `Delete label “${l.name || l.color}”?`, message: "It's removed from every card on this board.", confirmLabel: 'Delete label', tone: 'danger' })) && onChange(labels.filter((x) => x.id !== l.id))}
             aria-label="Delete label"
           >
             ✕

@@ -19,6 +19,7 @@ import { parseCardLink } from './lib/recent';
 import type { BoardMeta, Me, Workspace } from './lib/types';
 import { BOARD_COLORS } from './lib/types';
 import { openedFromSetPasswordLink, supabase } from './supabase';
+import { showAlert } from './components/dialog';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -194,7 +195,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const openFromAnywhere = useCallback(
     (boardId: string, cardId: string | null) => {
       if (!boardsRef.current.some((b) => b.id === boardId)) {
-        alert('That board is no longer available to you.');
+        void showAlert({ title: 'Board not available', message: 'That board was deleted, or you no longer have access to it.' });
         return;
       }
       select(boardId);
@@ -250,7 +251,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       await reload();
       select(id);
     } catch (e) {
-      alert((e as Error).message);
+      void showAlert({ title: 'Something went wrong', message: (e as Error).message, tone: 'danger' });
     }
   };
 
@@ -260,7 +261,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       await reload();
       setWsModal(id);
     } catch (e) {
-      alert((e as Error).message);
+      void showAlert({ title: 'Something went wrong', message: (e as Error).message, tone: 'danger' });
     }
   };
 
@@ -269,7 +270,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
       const all = await Promise.all(boards.map((b) => api.getBoardData(b.id)));
       download(`karlo-backup-${new Date().toISOString().slice(0, 10)}.json`, karloExport(all));
     } catch (e) {
-      alert((e as Error).message);
+      void showAlert({ title: 'Something went wrong', message: (e as Error).message, tone: 'danger' });
     }
   };
 

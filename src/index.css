@@ -1267,3 +1267,27 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 .exp-access:has(input:disabled) { cursor: default; opacity: .8; }
 @media (max-width: 600px) { .exp-access span { display: none; } }
 .ex-share-hint { font-weight: 400; font-size: 12px; }
+
+/* ---------------------------------------------------------------- Karlo dialogs (confirm / alert) */
+.kd-backdrop { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 16px; background: rgba(9,30,66,.5); animation: kd-fade .12s ease-out; }
+.kd { width: 100%; max-width: 420px; background: #fff; border-radius: 12px; box-shadow: 0 20px 48px rgba(9,30,66,.35); padding: 20px 20px 16px; color: #172b4d; animation: kd-pop .14s ease-out; }
+.kd-head { display: flex; align-items: center; gap: 12px; }
+.kd-head h3 { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.3; }
+.kd-icon { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: #e9f2ff; color: #0c66e4; }
+.kd-danger .kd-icon { background: #ffeceb; color: #c9372c; }
+.kd-access .kd-icon { background: #dcfff1; color: #1f845a; }
+.kd-msg { margin: 10px 0 0 48px; font-size: 14px; line-height: 1.5; color: #44546f; }
+.kd-msg strong { color: #172b4d; }
+.kd-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.kd-actions .btn { padding: 8px 16px; font-weight: 600; border-radius: 6px; }
+.kd-cancel { background: #f1f2f4; color: #172b4d; }
+.kd-cancel:hover { background: #dcdfe4; }
+.btn.access { background: #1f845a; color: #fff; }
+.btn.access:hover { background: #216e4e; }
+.kd-actions .btn:focus-visible { outline: 2px solid #388bff; outline-offset: 2px; }
+@keyframes kd-fade { from { opacity: 0; } }
+@keyframes kd-pop { from { opacity: 0; transform: translateY(6px) scale(.98); } }
+@media (max-width: 480px) {
+  .kd-msg { margin-left: 0; }
+  .kd-actions .btn { flex: 1; }
+}

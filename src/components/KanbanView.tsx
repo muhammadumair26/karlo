@@ -9,6 +9,7 @@ import { useSignedUrls } from '../lib/files';
 import { CardItem } from './CardItem';
 import { AddForm, EditableText } from './Editable';
 import { Menu } from './ui';
+import { askConfirm } from './dialog';
 
 type Drag = { kind: 'card'; id: string } | { kind: 'list'; id: string } | null;
 
@@ -183,9 +184,16 @@ export function KanbanView({
                     </button>
                     <button
                       className="danger-text"
-                      onClick={() => {
+                      onClick={async () => {
                         setMenuFor(null);
-                        if (confirm(`Delete list "${list.title}" and its ${list.cardIds.length} card(s)? This cannot be undone.`))
+                        if (
+                          await askConfirm({
+                            title: `Delete list “${list.title}”?`,
+                            message: `The list and its ${list.cardIds.length} card${list.cardIds.length === 1 ? '' : 's'} are deleted permanently. This cannot be undone.`,
+                            confirmLabel: 'Delete list',
+                            tone: 'danger',
+                          })
+                        )
                           dispatch({ type: 'DELETE_LIST', listId: list.id });
                       }}
                     >

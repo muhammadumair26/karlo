@@ -39,6 +39,7 @@ import { cardLink, parseCardLink, recentCards, rememberCard } from '../lib/recen
 import { LabelsEditor } from './LabelsEditor';
 import { MentionInput } from './MentionInput';
 import { Avatar, Menu, Modal, timeAgo } from './ui';
+import { askConfirm } from './dialog';
 
 type Pop = null | 'add' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority' | 'location';
 
@@ -201,8 +202,8 @@ export function CardModal({
       else window.open(u, '_blank', 'noopener');
     }
   };
-  const removeAttachment = (a: Attachment) => {
-    if (!confirm(`Delete ${a.name || 'this attachment'}? This cannot be undone.`)) return;
+  const removeAttachment = async (a: Attachment) => {
+    if (!(await askConfirm({ title: `Delete ${a.name || 'this attachment'}?`, message: 'The file is removed from this card permanently. This cannot be undone.', confirmLabel: 'Delete', tone: 'danger' }))) return;
     dispatch({ type: 'DELETE_ATTACHMENT', cardId: card.id, attachmentId: a.id });
   };
 
@@ -285,7 +286,7 @@ export function CardModal({
                     <span>•</span>
                     <button
                       className="link-btn"
-                      onClick={() => confirm('Delete this comment?') && dispatch({ type: 'DELETE_COMMENT', cardId: card.id, commentId: c.id })}
+                      onClick={async () => (await askConfirm({ title: 'Delete this comment?', message: 'The comment is removed for everyone.', confirmLabel: 'Delete', tone: 'danger' })) && dispatch({ type: 'DELETE_COMMENT', cardId: card.id, commentId: c.id })}
                     >
                       Delete
                     </button>
@@ -724,10 +725,10 @@ export function CardModal({
                 className="danger-text"
                 disabled={!canManage}
                 title={canManage ? undefined : 'Only the card owner or a board admin can delete this card'}
-                onClick={() => {
+                onClick={async () => {
                   setMenu(false);
                   if (!canManage) return;
-                  if (confirm('Delete this card permanently? This cannot be undone.')) {
+                  if (await askConfirm({ title: `Delete “${card.title}”?`, message: 'The card, its comments and files are deleted permanently. This cannot be undone.', confirmLabel: 'Delete card', tone: 'danger' })) {
                     dispatch({ type: 'DELETE_CARD', cardId: card.id });
                     onClose();
                   }

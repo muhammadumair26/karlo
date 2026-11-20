@@ -51,6 +51,7 @@ import { ActivityFeed } from './ActivityFeed';
 import { MemberCard, type MemberCardTarget } from './MemberCard';
 import { handleOf } from '../lib/notify';
 import { Avatar, download, Menu, Modal } from './ui';
+import { askConfirm } from './dialog';
 
 type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map' | 'expenses';
 
@@ -370,7 +371,7 @@ export function BoardPage({
                 className="danger-text"
                 onClick={async () => {
                   setMenuOpen(false);
-                  if (!confirm(`Delete board "${meta.title}" for everyone? This cannot be undone.`)) return;
+                  if (!(await askConfirm({ title: `Delete “${meta.title}”?`, message: 'The board, its cards and files are deleted for everyone. This cannot be undone.', confirmLabel: 'Delete board', tone: 'danger' }))) return;
                   await api.deleteBoard(meta.id);
                   onBoardGone();
                 }}
@@ -381,7 +382,7 @@ export function BoardPage({
               <button
                 onClick={async () => {
                   setMenuOpen(false);
-                  if (!confirm('Leave this board?')) return;
+                  if (!(await askConfirm({ title: `Leave “${meta.title}”?`, message: "You'll lose access until someone invites you again.", confirmLabel: 'Leave board', tone: 'danger' }))) return;
                   await api.leaveBoard(meta.id, me.id);
                   onBoardGone();
                 }}
@@ -784,7 +785,7 @@ export function BoardPage({
                     </button>
                     <button
                       className="btn small danger"
-                      onClick={() => confirm(`Delete list "${l.title}" permanently?`) && dispatch({ type: 'DELETE_LIST', listId: l.id })}
+                      onClick={async () => (await askConfirm({ title: `Delete list “${l.title}”?`, message: 'The list and its cards are deleted permanently. This cannot be undone.', confirmLabel: 'Delete list', tone: 'danger' })) && dispatch({ type: 'DELETE_LIST', listId: l.id })}
                     >
                       Delete
                     </button>
@@ -808,7 +809,7 @@ export function BoardPage({
                     </button>
                     <button
                       className="btn small danger"
-                      onClick={() => confirm(`Delete "${c.title}" permanently?`) && dispatch({ type: 'DELETE_CARD', cardId: c.id })}
+                      onClick={async () => (await askConfirm({ title: `Delete “${c.title}”?`, message: 'The card is deleted permanently. This cannot be undone.', confirmLabel: 'Delete card', tone: 'danger' })) && dispatch({ type: 'DELETE_CARD', cardId: c.id })}
                     >
                       Delete
                     </button>

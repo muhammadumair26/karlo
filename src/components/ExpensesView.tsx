@@ -26,6 +26,7 @@ import {
 } from '../lib/expenses';
 import type { BoardData, Me, Person } from '../lib/types';
 import { Avatar, download, Modal } from './ui';
+import { askConfirm, showAlert } from './dialog';
 
 export type ExpensesState = {
   expenses: Expense[];
@@ -120,11 +121,11 @@ export function ExpensesView({
     download(`${boardTitle.replace(/[^\w-]+/g, '-')}-expenses${month ? '-' + month : ''}.csv`, toCsv(shown, nameOf, cardTitle, cur), 'text/csv');
 
   const remove = async (e: Expense) => {
-    if (!confirm(`Delete “${e.title || 'this payment'}” (${money(e.amount, cur)})? This cannot be undone.`)) return;
+    if (!(await askConfirm({ title: `Delete “${e.title || 'this payment'}”?`, message: <>{money(e.amount, cur)} on {shortDate(e.spent_on)} is removed{e.receipt_path ? ', with its receipt' : ''}. This cannot be undone.</>, confirmLabel: 'Delete', tone: 'danger' }))) return;
     try {
       await deleteExpense(e);
     } catch (err) {
-      alert((err as Error).message);
+      void showAlert({ title: "Couldn't delete", message: (err as Error).message, tone: 'danger' });
     }
   };
 

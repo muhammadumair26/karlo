@@ -4,6 +4,7 @@ import type { Me, Workspace } from '../lib/types';
 import { canAdmin, ROLE_INFO } from '../lib/types';
 import { MembersPanel } from './MembersPanel';
 import { Modal } from './ui';
+import { askConfirm } from './dialog';
 
 export function WorkspaceModal({
   workspace,
@@ -52,8 +53,8 @@ export function WorkspaceModal({
         {workspace.role === 'owner' ? (
           <button
             className="btn danger"
-            onClick={() =>
-              confirm(`Delete workspace "${workspace.name}" and ALL its boards for everyone? This cannot be undone.`) &&
+            onClick={async () =>
+              (await askConfirm({ title: `Delete workspace “${workspace.name}”?`, message: <>This deletes <strong>all its boards</strong>, cards and files for everyone. This cannot be undone.</>, confirmLabel: 'Delete workspace', tone: 'danger' })) &&
               run(async () => {
                 await api.deleteWorkspace(workspace.id);
                 onClose();
@@ -65,8 +66,8 @@ export function WorkspaceModal({
         ) : (
           <button
             className="btn ghost"
-            onClick={() =>
-              confirm(`Leave "${workspace.name}"?`) &&
+            onClick={async () =>
+              (await askConfirm({ title: `Leave “${workspace.name}”?`, message: "You'll lose access to its boards until someone invites you again.", confirmLabel: 'Leave workspace', tone: 'danger' })) &&
               run(async () => {
                 await api.leaveWorkspace(workspace.id, me.id);
                 onClose();
