@@ -1261,3 +1261,9 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
   .ex-stats .stat-num { font-size: 17px; }
   .ex-stats .stat-label { font-size: 12px; }
 }
+.exp-access { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #626f86; padding: 4px 8px; border-radius: 14px; border: 1px solid #dfe1e6; cursor: pointer; white-space: nowrap; user-select: none; }
+.exp-access input { margin: 0; accent-color: #1f845a; }
+.exp-access.on { color: #216e4e; background: #dcfff1; border-color: #baf3db; }
+.exp-access:has(input:disabled) { cursor: default; opacity: .8; }
+@media (max-width: 600px) { .exp-access span { display: none; } }
+.ex-share-hint { font-weight: 400; font-size: 12px; }

@@ -60,9 +60,11 @@ create policy "expense settings create" on public.expense_settings for insert to
   with check (public.board_role(board_id) = 'owner'
               and partners @> jsonb_build_array(jsonb_build_object('id', auth.uid()::text)));
 drop policy if exists "expense settings update" on public.expense_settings;
+-- Only the board owner decides budget, shares and who has access (and can't lock themselves out).
 create policy "expense settings update" on public.expense_settings for update to authenticated
-  using (public.is_expense_partner(board_id))
-  with check (public.is_expense_partner(board_id));
+  using (public.board_role(board_id) = 'owner' and public.is_expense_partner(board_id))
+  with check (public.board_role(board_id) = 'owner'
+              and partners @> jsonb_build_array(jsonb_build_object('id', auth.uid()::text)));
 
 grant select, insert, update, delete on public.expenses, public.expense_settings to authenticated;
 

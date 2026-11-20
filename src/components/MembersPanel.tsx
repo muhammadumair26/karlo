@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../lib/api';
+import { loadExpenseSettings, saveSettings, withAccess, workspaceBoardIds, type ExpenseSettings } from '../lib/expenses';
 import type { Me, Person, Role } from '../lib/types';
 import { ROLE_INFO } from '../lib/types';
 import { publicOrigin } from '../lib/platform';
+import { Wallet } from 'lucide-react';
 import { Avatar, RoleSelect } from './ui';
 
 /** Member list + invite form for a workspace or a single board. */
@@ -24,6 +26,40 @@ export function MembersPanel({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const isBoard = !!target.boardId;
+  // Expense access: only shown to people who can see this board's (or workspace's) expenses.
+  const [expenses, setExpenses] = useState<ExpenseSettings[]>([]);
+  const [expBusy, setExpBusy] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const ids = isBoard ? [target.boardId!] : await workspaceBoardIds(target.workspaceId!);
+        const s = await loadExpenseSettings(ids);
+        if (live) setExpenses(s);
+      } catch {
+        /* no expenses for this user */
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [isBoard, target.boardId, target.workspaceId]);
+  const hasExpenseAccess = (id: string) => expenses.length > 0 && expenses.every((s) => s.partners.some((p) => p.id === id));
+  const toggleExpenses = async (p: Person) => {
+    const on = !hasExpenseAccess(p.user_id);
+    if (on && !confirm(`Give ${p.name} access to expenses${isBoard ? ' on this board' : ` on ${expenses.length} board${expenses.length > 1 ? 's' : ''} in this workspace`}? They will see every cost and receipt.`)) return;
+    setExpBusy(p.user_id);
+    setMsg(null);
+    try {
+      const next = expenses.map((s) => withAccess(s, p.user_id, on));
+      for (const s of next) await saveSettings(s);
+      setExpenses(next);
+      setMsg({ kind: 'ok', text: on ? `${p.name} can now see expenses.` : `${p.name} can no longer see expenses.` });
+    } catch (err) {
+      setMsg({ kind: 'err', text: `Only the board owner can change expense access. (${(err as Error).message})` });
+    }
+    setExpBusy(null);
+  };
 
   const reload = useCallback(async () => {
     try {
@@ -113,6 +149,21 @@ export function MembersPanel({
                   {viaWorkspace && ' · via workspace'}
                 </div>
               </div>
+              {expenses.length > 0 && (
+                <label
+                  className={`exp-access ${hasExpenseAccess(p.user_id) ? 'on' : ''}`}
+                  title={p.user_id === me.id ? 'You always have access' : hasExpenseAccess(p.user_id) ? 'Can see expenses — click to remove' : 'No access to expenses — click to give access'}
+                >
+                  <input
+                    type="checkbox"
+                    checked={hasExpenseAccess(p.user_id)}
+                    disabled={p.user_id === me.id || expBusy === p.user_id}
+                    onChange={() => toggleExpenses(p)}
+                  />
+                  <Wallet size={14} />
+                  <span>Expenses</span>
+                </label>
+              )}
               <RoleSelect
                 value={p.role}
                 disabled={!canManage || viaWorkspace || p.user_id === me.id}

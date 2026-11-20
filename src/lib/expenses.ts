@@ -252,3 +252,34 @@ export function useExpenses(boardId: string) {
 
   return { expenses, settings, loaded, reload: load, allowed: !!settings };
 }
+
+// ---------------------------------------------------------------- who can see expenses (member settings)
+
+/** Expense settings the current user can see for these boards (only boards where they have access). */
+export async function loadExpenseSettings(boardIds: string[]): Promise<ExpenseSettings[]> {
+  if (!supabase || boardIds.length === 0) return [];
+  const { data, error } = await supabase.from('expense_settings').select('*').in('board_id', boardIds);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((s) => ({ ...(s as ExpenseSettings), budget: s.budget == null ? null : Number(s.budget) }));
+}
+
+/** Board ids in a workspace. */
+export async function workspaceBoardIds(workspaceId: string): Promise<string[]> {
+  if (!supabase) return [];
+  const { data } = await supabase.from('boards').select('id').eq('workspace_id', workspaceId);
+  return (data ?? []).map((b) => b.id as string);
+}
+
+/**
+ * Give or take away expenses access. New people get a 0% share: they can see and add costs
+ * but aren't part of the cost split (change shares in Budget & settings).
+ */
+export function withAccess(s: ExpenseSettings, userId: string, on: boolean): ExpenseSettings {
+  const has = s.partners.some((p) => p.id === userId);
+  if (on && !has) return { ...s, partners: [...s.partners, { id: userId, share: 0 }] };
+  if (!on && has) return { ...s, partners: s.partners.filter((p) => p.id !== userId) };
+  return s;
+}
+
+/** People who actually share costs (share > 0). One or none means solo cost tracking. */
+export const sharingPartners = (partners: Partner[]) => partners.filter((p) => p.share > 0);

@@ -12,6 +12,7 @@ import {
   saveExpense,
   saveSettings,
   settleUp,
+  sharingPartners,
   shareFractions,
   spending,
   total,
@@ -86,7 +87,7 @@ export function ExpensesView({
   const frac = shareFractions(settings.partners);
   const splitLabel = settings.partners.map((p) => Math.round((frac.get(p.id) ?? 0) * 100)).join('/');
   // Just one person tracking costs: no split, no who-owes-whom.
-  const solo = settings.partners.length <= 1;
+  const solo = sharingPartners(settings.partners).length <= 1;
 
   // Filters (summary tiles, charts and table all follow them; balances always use everything).
   const months = [...new Set(expenses.map((e) => e.spent_on.slice(0, 7)))].sort().reverse();
@@ -107,7 +108,7 @@ export function ExpensesView({
   const budget = settings.budget;
   const used = budget ? allSpent / budget : 0;
 
-  const bal = balances(expenses, settings.partners);
+  const bal = balances(expenses, solo ? settings.partners : sharingPartners(settings.partners));
   const settle = settleUp(bal);
   const byCat = totalsBy(shown, (e) => e.category);
   const byMonth = monthly(shown.length ? shown : expenses, 12);
@@ -133,7 +134,7 @@ export function ExpensesView({
         <div className="ex-title">
           <Wallet size={18} /> Expenses
           <span className="ex-private" title={`Only ${settings.partners.map((p) => nameOf(p.id)).join(' and ')} can see this`}>
-            <Lock size={12} /> {solo ? 'Private · only you' : 'Partners only'}
+            <Lock size={12} /> {settings.partners.length <= 1 ? 'Private · only you' : `Private · ${settings.partners.length} people`}
           </span>
         </div>
         <span className="header-spacer" />
@@ -539,7 +540,7 @@ export function ExpenseForm({
           category: settle ? 'Partner payment' : f.category.trim() || 'Other',
           paid_to: settle ? f.paid_to : null,
           // Solo: never split, so adding a partner later doesn't turn old costs into debts.
-          shared: settle || partnerIds.length < 2 ? false : f.shared,
+          shared: settle || sharingPartners(settings.partners).length < 2 ? false : f.shared,
           card_id: settle ? null : f.card_id,
         },
         edit?.id,
@@ -554,7 +555,7 @@ export function ExpenseForm({
   return (
     <Modal title={edit ? 'Edit' : settle ? 'Record a partner payment' : 'Add expense'} onClose={onClose}>
       <form className="ex-form" onSubmit={submit}>
-        {!edit && partnerIds.length > 1 && (
+        {!edit && sharingPartners(settings.partners).length > 1 && (
           <div className="auth-tabs" role="tablist">
             <button type="button" className={!settle ? 'on' : ''} onClick={() => set({ kind: 'expense' })}>
               <Receipt size={14} /> Expense
@@ -628,7 +629,7 @@ export function ExpenseForm({
                 </select>
               </label>
             </div>
-            {f.paid_by && partnerIds.length > 1 && (
+            {f.paid_by && sharingPartners(settings.partners).length > 1 && (
               <label className="ex-check">
                 <input type="checkbox" checked={f.shared} onChange={(e) => set({ shared: e.target.checked })} />
                 Business cost — split between partners ({settings.partners.map((p) => `${nameOf(p.id).split(/[\s.]/)[0]} ${Math.round((shareFractions(settings.partners).get(p.id) ?? 0) * 100)}%`).join(', ')})
@@ -748,6 +749,7 @@ function SettingsModal({ settings, people, me, onClose }: { settings: ExpenseSet
               </button>
             </div>
           ))}
+          <span className="muted ex-share-hint">0% = can see and add costs, but isn't part of the cost split.</span>
           {Math.round(sum) !== 100 && <span className="ex-warn">Shares add up to {sum}% — costs are split in proportion, so that's fine, but 100% is clearest.</span>}
           {addable.length > 0 && (
             <select className="field-select" value="" onChange={(e) => e.target.value && setPartners([...partners, { id: e.target.value, share: 0 }])}>
@@ -811,7 +813,7 @@ export function CardExpenses({
               Expenses · {money(total(mine), cur)}
             </h4>
             <span className="ex-private dark" title="Only the project partners see this">
-              <Lock size={11} /> {state.settings.partners.length > 1 ? 'Partners only' : 'Only you'}
+              <Lock size={11} /> {state.settings.partners.length > 1 ? 'Private' : 'Only you'}
             </span>
             <button className="btn" onClick={() => onAddingChange(true)}>
               Add
