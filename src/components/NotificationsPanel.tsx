@@ -1,6 +1,8 @@
-import { Bell, BellOff, BellRing, CheckCheck, X } from 'lucide-react';
+import { Bell, BellOff, BellRing, CheckCheck, Settings2, Sun, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { syncTimezone } from '../lib/reminders';
+import { ReminderSettingsModal } from './ReminderSettings';
 import { loadNotifications, markRead, markUnread, type NotificationRow } from '../lib/notify';
 import { uid } from '../lib/board';
 import { disablePush, enablePush, pushState, type PushState } from '../lib/push';
@@ -23,6 +25,11 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
   const [push, setPush] = useState<PushState>('unsupported');
   const [pushBusy, setPushBusy] = useState(false);
   const [pushErr, setPushErr] = useState<string | null>(null);
+  const [showReminders, setShowReminders] = useState(false);
+  // Remember this device's time zone so the morning digest arrives at the right local hour.
+  useEffect(() => {
+    void syncTimezone().catch(() => {});
+  }, [userId]);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -89,7 +96,7 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
     const list = unreadOnly ? items.filter((n) => !n.read_at) : items;
     const out: { key: string; head: NotificationRow; rows: NotificationRow[] }[] = [];
     for (const n of list) {
-      const key = `${n.board_id}:${n.card_id}`;
+      const key = n.board_id ? `${n.board_id}:${n.card_id}` : n.id; // each digest stands alone
       const last = out[out.length - 1];
       if (last && last.key === key) last.rows.push(n);
       else out.push({ key, head: n, rows: [n] });
@@ -109,6 +116,7 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
         <Bell size={19} />
         {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
       </button>
+      {showReminders && <ReminderSettingsModal onClose={() => setShowReminders(false)} />}
 
       {/* Rendered at the page root: the top bar's blur (on photo backgrounds) would otherwise trap this fixed panel inside the bar. */}
       {open &&
@@ -134,6 +142,9 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
                   }}
                 />
               </label>
+              <button className="icon-btn" onClick={() => setShowReminders(true)} aria-label="Reminders and digest settings" title="Reminders & daily digest">
+                <Settings2 size={17} />
+              </button>
               <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close notifications">
                 <X size={18} />
               </button>
@@ -181,19 +192,28 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
                 </div>
               )}
               {groups.map((g) => (
-                <div key={g.head.id + g.key} className="notif-group">
+                <div key={g.head.id + g.key} className={`notif-group ${g.head.board_id ? '' : 'notif-digest'}`}>
                   <button
                     className="notif-card"
-                    style={{ ['--nb' as string]: g.head.board?.color ?? '#2563eb' }}
+                    style={{ ['--nb' as string]: g.head.board?.color ?? '#6e5dc6' }}
                     onClick={() => {
                       void setRead(g.rows.map((r) => r.id));
+                      if (!g.head.board_id) return; // the digest isn't about one card
                       setOpen(false);
                       onOpenCard(g.head.board_id, g.head.card_id);
                     }}
                   >
-                    <span className="notif-card-title">{g.head.card_title || 'Card'}</span>
+                    <span className="notif-card-title">
+                      {!g.head.board_id && <Sun size={15} />} {g.head.card_title || 'Card'}
+                    </span>
                     <span className="notif-card-where">
-                      <strong>{g.head.board?.title ?? 'Board'}:</strong> {g.head.list_title}
+                      {g.head.board_id ? (
+                        <>
+                          <strong>{g.head.board?.title ?? 'Board'}:</strong> {g.head.list_title}
+                        </>
+                      ) : (
+                        g.head.list_title
+                      )}
                     </span>
                   </button>
                   {g.rows.map((n) => (
@@ -204,14 +224,19 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
                       tabIndex={0}
                       onClick={() => {
                         void setRead([n.id]);
+                        if (!n.board_id) return;
                         setOpen(false);
                         onOpenCard(n.board_id, n.card_id);
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLElement).click()}
                     >
-                      <Avatar id={n.actor_id} name={n.actor?.name ?? '?'} src={n.actor?.avatar_url} size={28} />
+                      {n.actor_id ? (
+                        <Avatar id={n.actor_id} name={n.actor?.name ?? '?'} src={n.actor?.avatar_url} size={28} />
+                      ) : (
+                        <img className="notif-karlo" src={`${import.meta.env.BASE_URL}karlo-icon.png`} alt="" width={28} height={28} />
+                      )}
                       <div className="notif-text">
-                        <strong>{n.actor?.name ?? 'Someone'}</strong>
+                        <strong>{n.actor_id ? n.actor?.name ?? 'Someone' : n.kind === 'digest' ? 'Karlo · daily digest' : 'Karlo reminder'}</strong>
                         <div>
                           {n.body} <span className="muted">{timeAgo(Date.parse(n.created_at))}</span>
                         </div>

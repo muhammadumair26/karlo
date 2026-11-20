@@ -4,13 +4,13 @@ import { cardListId } from './board';
 import { formatDate } from './filters';
 import type { BoardData, Me, Person } from './types';
 
-export type NotificationKind = 'mention' | 'assigned' | 'comment' | 'attachment' | 'moved' | 'due' | 'completed';
+export type NotificationKind = 'mention' | 'assigned' | 'comment' | 'attachment' | 'moved' | 'due' | 'completed' | 'reminder' | 'digest';
 
 export interface NotificationRow {
   id: string;
   user_id: string;
-  actor_id: string;
-  board_id: string;
+  actor_id: string | null; // null = sent by Karlo itself (reminders, digest)
+  board_id: string | null; // null = not about one board (daily digest)
   card_id: string | null;
   kind: NotificationKind;
   card_title: string;

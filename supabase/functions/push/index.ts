@@ -73,14 +73,14 @@ Deno.serve(async (req) => {
     const k = await vapidKeys();
     webpush.setVapidDetails(SITE, k.public_key, k.private_key);
     // deno-lint-ignore no-explicit-any
-    const actor = (n as any).actor?.name ?? 'Someone';
+    const actor = (n as any).actor?.name ?? 'Karlo'; // no actor = Karlo's own reminders / digest
     // deno-lint-ignore no-explicit-any
     const boardTitle = (n as any).board?.title ?? 'Karlo';
     const payload = JSON.stringify({
       title: n.card_title ? `${actor} · ${n.card_title}` : actor,
       body: n.body,
       board: `${boardTitle}${n.list_title ? ': ' + n.list_title : ''}`,
-      url: `${SITE}/?board=${n.board_id}${n.card_id ? `&card=${n.card_id}` : ''}`,
+      url: n.board_id ? `${SITE}/?board=${n.board_id}${n.card_id ? `&card=${n.card_id}` : ''}` : `${SITE}/`,
       tag: n.card_id ?? n.id,
     });
 
