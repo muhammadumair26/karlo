@@ -1,5 +1,6 @@
 import { Calendar, Filter, Kanban, MoreHorizontal, Star, Table2, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as api from '../lib/api';
 import type { Filters } from '../lib/filters';
 import { hasFilters, NO_FILTERS } from '../lib/filters';
@@ -110,7 +111,12 @@ export function BoardPage({
 
   return (
     <>
-      {background && <div className="board-bg" style={{ backgroundImage: `url("${photoUrl(background)}")` }} />}
+      {/* Rendered at the app root (behind the top bar and sidebar), not inside the board area. */}
+      {background &&
+        createPortal(
+          <div className="board-bg" style={{ backgroundImage: `url("${photoUrl(background)}")` }} />,
+          document.body,
+        )}
       <div className={`board-header ${background ? 'on-photo' : ''}`}>
         {editable ? (
           <EditableText

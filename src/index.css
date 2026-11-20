@@ -438,8 +438,9 @@ input, textarea { font: inherit; color: inherit; }
 }
 .app { position: relative; }
 .topbar, .body, .banner-error { position: relative; z-index: 1; }
-.app:has(.board-bg) .topbar { background: rgba(0,0,0,.42); backdrop-filter: blur(6px); }
-.app:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: blur(10px); }
+body:has(.board-bg) .app { background: transparent; }
+body:has(.board-bg) .topbar { background: rgba(0,0,0,.42); backdrop-filter: blur(6px); }
+body:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: blur(10px); }
 .board-header.on-photo { background: rgba(0,0,0,.32); backdrop-filter: blur(4px); margin-bottom: 10px; }
 .icon-btn.star { opacity: .9; }
 .icon-btn.star.on { color: #fbbf24; }
