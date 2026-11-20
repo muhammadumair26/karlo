@@ -1,30 +1,24 @@
-import type { Card } from '../types';
-
-export function dueStatus(due: string | null): 'overdue' | 'soon' | 'later' | null {
-  if (!due) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(due + 'T00:00:00');
-  const days = (d.getTime() - today.getTime()) / 86400000;
-  if (days < 0) return 'overdue';
-  if (days <= 1) return 'soon';
-  return 'later';
-}
-
-export function formatDue(due: string) {
-  return new Date(due + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
+import { dueStatus, formatDate } from '../lib/filters';
+import type { Card, Label, Person } from '../lib/types';
+import { LABEL_COLORS, PRIORITIES } from '../lib/types';
+import { AvatarStack } from './ui';
 
 export function CardItem({
   card,
+  labels,
+  people,
   dragging,
+  draggable,
   onOpen,
   onDragStart,
   onDragEnd,
   onDragOver,
 }: {
   card: Card;
+  labels: Map<string, Label>;
+  people: Map<string, Person>;
   dragging: boolean;
+  draggable: boolean;
   onOpen: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
@@ -32,36 +26,54 @@ export function CardItem({
 }) {
   const done = card.checklist.filter((i) => i.done).length;
   const total = card.checklist.length;
-  const status = dueStatus(card.due);
+  const status = dueStatus(card);
+  const prio = PRIORITIES.find((p) => p.value === card.priority);
+  const cardLabels = card.labelIds.map((id) => labels.get(id)).filter((l): l is Label => !!l);
 
   return (
     <div
       className={`card ${dragging ? 'dragging' : ''}`}
-      draggable
+      draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onClick={onOpen}
+      onKeyDown={(e) => e.key === 'Enter' && onOpen()}
+      tabIndex={0}
+      role="button"
     >
-      {card.labels.length > 0 && (
+      {cardLabels.length > 0 && (
         <div className="card-labels">
-          {card.labels.map((l) => (
-            <span key={l} className={`label-bar label-${l}`} />
+          {cardLabels.map((l) => (
+            <span key={l.id} className="label-chip-sm" style={{ background: LABEL_COLORS[l.color] ?? '#8590a2' }} title={l.name}>
+              {l.name}
+            </span>
           ))}
         </div>
       )}
       <div className="card-title">{card.title}</div>
-      {(card.due || total > 0 || card.description) && (
-        <div className="card-badges">
-          {card.due && <span className={`badge due-${status}`}>🕒 {formatDue(card.due)}</span>}
-          {card.description && <span className="badge" title="Has description">≡</span>}
-          {total > 0 && (
-            <span className={`badge ${done === total ? 'complete' : ''}`}>
-              ☑ {done}/{total}
-            </span>
-          )}
-        </div>
-      )}
+      <div className="card-badges">
+        {card.priority !== 'none' && prio && (
+          <span className="badge prio" style={{ color: prio.color }} title={`Priority: ${prio.label}`}>
+            ⚑ {prio.label}
+          </span>
+        )}
+        {card.due && (
+          <span className={`badge due-${status}`} title={card.dueDone ? 'Complete' : 'Due date'}>
+            {card.dueDone ? '✓' : '🕒'} {formatDate(card.due)}
+          </span>
+        )}
+        {card.description && <span className="badge" title="Has description">≡</span>}
+        {card.comments.length > 0 && <span className="badge" title="Comments">💬 {card.comments.length}</span>}
+        {card.attachments.length > 0 && <span className="badge" title="Attachments">📎 {card.attachments.length}</span>}
+        {total > 0 && (
+          <span className={`badge ${done === total ? 'complete' : ''}`} title="Checklist">
+            ☑ {done}/{total}
+          </span>
+        )}
+        <span className="badge-spacer" />
+        <AvatarStack ids={card.assignees} people={people} size={22} />
+      </div>
     </div>
   );
 }

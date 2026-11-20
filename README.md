@@ -1,27 +1,40 @@
 # Karlo
 
-Karlo is a Trello-style Kanban project management tool built with React + TypeScript + Vite.
+Karlo is a team project-management tool (Kanban boards, like Trello) built with React + TypeScript + Vite and Supabase.
 
-## Run
+Live: https://karlo.orionsoftsol.com
+
+## Features
+
+- **Workspaces (teams)** with roles: Owner, Admin, Member, Viewer
+- **Board sharing**: invite people to a single board; invites to people without an account are accepted automatically when they sign up
+- **Boards, lists, cards** with drag-and-drop, archive/restore, activity log
+- **Cards**: assignees, priority, start/due dates (+ complete), named labels, checklists, link attachments, comments
+- **Views**: Board, Table (sortable), Calendar; filters by text, assignee, label, priority, due date
+- **Real-time collaboration**: changes appear instantly for everyone; concurrent edits are merged (optimistic locking + replay)
+- **Import**: Trello (JSON export), ClickUp (CSV export), any CSV, Karlo backups
+- **Export**: board as JSON or CSV, or all boards as one backup file
+
+## Run locally
 
 ```bash
+cp .env.example .env.local   # fill in your Supabase URL + publishable key
 npm install
 npm run dev
 ```
 
-## Features
+## Database
 
-- Multiple boards (create, rename, delete, each with its own color)
-- Lists: add, rename (click the title), delete, drag to reorder
-- Cards: add, drag within/between lists, click to open the editor
-- Card editor: title, description, colored labels, due date (overdue/soon badges), checklist with progress
-- Filter cards by text
-- Data saved in the browser's localStorage
+Run in Supabase → SQL Editor:
+1. `supabase/schema.sql` (v1, kept for migrating old data)
+2. `supabase/schema-v2-teams.sql` (workspaces, boards, roles, invites)
+
+`supabase/test-permissions.sql` checks every role and rolls itself back.
 
 ## Structure
 
-- `src/types.ts` – data model (Board → List → Card)
-- `src/store.ts` – reducer with all actions + localStorage persistence
-- `src/components/BoardView.tsx` – lists and drag-and-drop
-- `src/components/CardModal.tsx` – card detail editor
-- `src/components/CardItem.tsx` – card preview on the board
+- `src/lib/board.ts` – board data model and pure reducer (replayable actions)
+- `src/lib/useBoardSync.ts` – load/save/realtime with conflict-safe merging
+- `src/lib/api.ts` – workspaces, boards, members, invites
+- `src/lib/importers.ts` – Trello / ClickUp / CSV import and CSV/JSON export
+- `src/components/` – UI (BoardPage, KanbanView, TableView, CalendarView, CardModal, MembersPanel, …)

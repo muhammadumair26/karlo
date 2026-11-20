@@ -1,28 +1,28 @@
 import type { Session } from '@supabase/supabase-js';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthScreen, SetPasswordScreen } from './components/AuthScreen';
-import { BoardView } from './components/BoardView';
-import { CardModal } from './components/CardModal';
-import { AddForm, EditableText } from './components/Editable';
-import { useStore } from './store';
+import { BoardPage } from './components/BoardPage';
+import { ImportModal } from './components/ImportModal';
+import { Sidebar } from './components/Sidebar';
+import { Avatar, download, Menu, Modal } from './components/ui';
+import { WorkspaceModal } from './components/WorkspaceModal';
+import * as api from './lib/api';
+import { starterBoard } from './lib/board';
+import { karloExport } from './lib/importers';
+import type { BoardMeta, Me, Workspace } from './lib/types';
+import { BOARD_COLORS } from './lib/types';
 import { openedFromSetPasswordLink, supabase } from './supabase';
-import { useCloudSync, type SyncStatus } from './sync';
-
-const STATUS_TEXT: Record<SyncStatus, string> = {
-  local: 'Saved on this device',
-  connecting: 'Connecting…',
-  saving: 'Saving…',
-  saved: '✓ Synced',
-  offline: '⚠ Offline – will retry',
-};
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
-  const [authReady, setAuthReady] = useState(!supabase);
+  const [authReady, setAuthReady] = useState(false);
   const [needsPassword, setNeedsPassword] = useState(openedFromSetPasswordLink);
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setAuthReady(true);
+      return;
+    }
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setAuthReady(true);
@@ -34,115 +34,285 @@ export default function App() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  if (!supabase) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <h2>Karlo isn't configured</h2>
+          <p className="muted">Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (see .env.example).</p>
+        </div>
+      </div>
+    );
+  }
   if (!authReady) return <div className="auth-page" />;
-  if (supabase && !session) return <AuthScreen />;
-  if (session && needsPassword)
-    return <SetPasswordScreen email={session.user.email ?? ''} onDone={() => setNeedsPassword(false)} />;
-  const userId = session?.user.id ?? null;
-  // Remount per user so each account gets its own state.
-  return <Workspace key={userId ?? 'local'} userId={userId} email={session?.user.email ?? null} />;
+  if (!session) return <AuthScreen />;
+  if (needsPassword) return <SetPasswordScreen email={session.user.email ?? ''} onDone={() => setNeedsPassword(false)} />;
+  return <Home key={session.user.id} userId={session.user.id} email={session.user.email ?? ''} />;
 }
 
-function Workspace({ userId, email }: { userId: string | null; email: string | null }) {
-  const [state, dispatch] = useStore(userId);
-  const syncStatus = useCloudSync(userId, state, dispatch);
-  const [openCardId, setOpenCardId] = useState<string | null>(null);
-  const [filter, setFilter] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const closeModal = useCallback(() => setOpenCardId(null), []);
+const ACTIVE_KEY = 'karlo-active-board';
 
-  const board = state.activeBoardId ? state.boards[state.activeBoardId] : null;
-  const openCard = openCardId ? state.cards[openCardId] : null;
-  const openCardList = openCard ? Object.values(state.lists).find((l) => l.cardIds.includes(openCard.id)) : null;
+// Avoid running first-sign-in setup twice (React StrictMode runs effects twice in dev).
+const bootstraps = new Map<string, Promise<void>>();
+
+function Home({ userId, email }: { userId: string; email: string }) {
+  const [me, setMe] = useState<Me | null>(null);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [boards, setBoards] = useState<BoardMeta[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(ACTIVE_KEY);
+    } catch {
+      return null;
+    }
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 720);
+  const [wsModal, setWsModal] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileModal, setProfileModal] = useState(false);
+  const reloadTimer = useRef<number | undefined>(undefined);
+  const boardsRef = useRef<BoardMeta[]>([]);
+  boardsRef.current = boards;
+
+  const select = useCallback((id: string | null) => {
+    setActiveId(id);
+    try {
+      if (id) localStorage.setItem(ACTIVE_KEY, id);
+      else localStorage.removeItem(ACTIVE_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (window.innerWidth <= 720) setSidebarOpen(false);
+  }, []);
+
+  const reload = useCallback(async () => {
+    try {
+      const r = await api.loadWorkspacesAndBoards(userId);
+      setWorkspaces(r.workspaces);
+      setBoards(r.boards);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [userId]);
+
+  const reloadSoon = useCallback(() => {
+    window.clearTimeout(reloadTimer.current);
+    reloadTimer.current = window.setTimeout(() => void reload(), 300);
+  }, [reload]);
+
+  // First load.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const m = await api.loadMe(userId, email);
+        if (cancelled) return;
+        setMe(m);
+        if (!bootstraps.has(userId)) bootstraps.set(userId, api.bootstrap(m));
+        await bootstraps.get(userId);
+        await reload();
+      } catch (e) {
+        setError((e as Error).message);
+      }
+      if (!cancelled) setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, email, reload]);
+
+  // Live updates to the board list and memberships.
+  useEffect(() => {
+    if (!supabase) return;
+    const sb = supabase;
+    const ch = sb
+      .channel(`nav:${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'boards' }, (p) => {
+        // Content-only saves are handled by the open board; only reload for title/colour/new/deleted boards.
+        const n = p.new as Partial<BoardMeta> | undefined;
+        const o = boardsRef.current.find((b) => b.id === n?.id);
+        if (p.eventType === 'UPDATE' && o && n && o.title === n.title && o.color === n.color && o.workspace_id === n.workspace_id) return;
+        reloadSoon();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'workspace_members', filter: `user_id=eq.${userId}` }, reloadSoon)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'board_members', filter: `user_id=eq.${userId}` }, reloadSoon)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workspaces' }, reloadSoon)
+      .subscribe();
+    const onVisible = () => document.visibilityState === 'visible' && reloadSoon();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      sb.removeChannel(ch);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [userId, reloadSoon]);
+
+  // Keep a valid board selected.
+  useEffect(() => {
+    if (!ready) return;
+    if (!activeId || !boards.some((b) => b.id === activeId)) {
+      const first = boards[0]?.id ?? null;
+      if (first !== activeId) select(first);
+    }
+  }, [ready, boards, activeId, select]);
+
+  const active = boards.find((b) => b.id === activeId) ?? null;
+  const wsForModal = workspaces.find((w) => w.id === wsModal) ?? null;
+
+  const newBoard = async (workspaceId: string, title: string) => {
+    try {
+      const color = BOARD_COLORS[boards.length % BOARD_COLORS.length];
+      const id = await api.createBoard(workspaceId, title, color, starterBoard());
+      await reload();
+      select(id);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const newWorkspace = async (name: string) => {
+    try {
+      const id = await api.createWorkspace(name);
+      await reload();
+      setWsModal(id);
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  const exportAll = async () => {
+    try {
+      const all = await Promise.all(boards.map((b) => api.getBoardData(b.id)));
+      download(`karlo-backup-${new Date().toISOString().slice(0, 10)}.json`, karloExport(all));
+    } catch (e) {
+      alert((e as Error).message);
+    }
+  };
+
+  if (!me || !ready) {
+    return (
+      <div className="auth-page">
+        <div className="loading-logo">
+          <img src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />
+          {error ? <div className="auth-error">{error}</div> : <span>Loading your workspace…</span>}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="app" style={{ ['--board-color' as string]: board?.color ?? '#0079bf' }}>
+    <div className="app" style={{ ['--board-color' as string]: active?.color ?? '#2563eb' }}>
       <header className="topbar">
-        <button className="icon-btn light" onClick={() => setSidebarOpen((o) => !o)} title="Toggle boards">
+        <button className="icon-btn light" onClick={() => setSidebarOpen((o) => !o)} title="Toggle sidebar">
           ☰
         </button>
-        <span className="brand"><img className="brand-logo" src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />Karlo</span>
-        {board && (
-          <input
-            className="search"
-            placeholder="Filter cards…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        )}
-        <span className={`sync-status sync-${syncStatus}`}>{STATUS_TEXT[syncStatus]}</span>
-        {email && (
-          <button className="btn translucent signout" onClick={() => supabase?.auth.signOut()} title={email}>
-            Sign out
+        <span className="brand">
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />
+          Karlo
+        </span>
+        <span className="menu-anchor">
+          <button className="profile-btn" onClick={() => setProfileOpen(!profileOpen)} title={me.email}>
+            <Avatar id={me.id} name={me.name} size={30} />
           </button>
-        )}
+          <Menu open={profileOpen} onClose={() => setProfileOpen(false)}>
+            <div className="menu-head">
+              <strong>{me.name}</strong>
+              <span className="muted">{me.email}</span>
+            </div>
+            <button onClick={() => (setProfileOpen(false), setProfileModal(true))}>Edit profile name</button>
+            <button onClick={() => supabase?.auth.signOut()}>Sign out</button>
+          </Menu>
+        </span>
       </header>
+
+      {error && <div className="banner-error">⚠ {error}</div>}
 
       <div className="body">
         {sidebarOpen && (
-          <aside className="sidebar">
-            <h3>Your boards</h3>
-            <ul>
-              {state.boardOrder.map((id) => {
-                const b = state.boards[id];
-                return (
-                  <li key={id} className={id === state.activeBoardId ? 'active' : ''}>
-                    <button onClick={() => dispatch({ type: 'SELECT_BOARD', boardId: id })}>
-                      <span className="swatch" style={{ background: b.color }} />
-                      {b.title}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <AddForm
-              label="New board"
-              placeholder="Board title…"
-              submitLabel="Create"
-              onAdd={(title) => dispatch({ type: 'ADD_BOARD', title })}
-            />
-          </aside>
+          <Sidebar
+            workspaces={workspaces}
+            boards={boards}
+            activeBoardId={activeId}
+            onSelect={select}
+            onNewBoard={newBoard}
+            onNewWorkspace={newWorkspace}
+            onOpenWorkspace={setWsModal}
+            onImport={() => setImportOpen(true)}
+            onExportAll={exportAll}
+          />
         )}
-
         <main className="main">
-          {board ? (
-            <>
-              <div className="board-header">
-                <EditableText
-                  className="board-title"
-                  value={board.title}
-                  onSave={(title) => dispatch({ type: 'RENAME_BOARD', boardId: board.id, title })}
-                />
-                <button
-                  className="btn translucent"
-                  onClick={() => {
-                    if (confirm(`Delete board "${board.title}"? This cannot be undone.`))
-                      dispatch({ type: 'DELETE_BOARD', boardId: board.id });
-                  }}
-                >
-                  Delete board
-                </button>
-              </div>
-              <BoardView board={board} state={state} dispatch={dispatch} filter={filter} onOpenCard={setOpenCardId} />
-            </>
+          {active ? (
+            <BoardPage
+              key={active.id}
+              meta={active}
+              me={me}
+              onMetaChanged={reload}
+              onBoardGone={async () => {
+                select(null);
+                await reload();
+              }}
+            />
           ) : (
             <div className="empty">
               <h2>No boards yet</h2>
-              <p>Create your first board from the sidebar.</p>
+              <p>Create a board from the sidebar, or import from Trello or ClickUp.</p>
             </div>
           )}
         </main>
       </div>
 
-      {openCard && (
-        <CardModal
-          key={openCard.id}
-          card={openCard}
-          listTitle={openCardList?.title ?? ''}
-          dispatch={dispatch}
-          onClose={closeModal}
+      {wsForModal && <WorkspaceModal workspace={wsForModal} me={me} onClose={() => setWsModal(null)} onChanged={reload} />}
+      {importOpen && (
+        <ImportModal
+          workspaces={workspaces}
+          onClose={() => setImportOpen(false)}
+          onImported={async (id) => {
+            setImportOpen(false);
+            await reload();
+            if (id) select(id);
+          }}
+        />
+      )}
+      {profileModal && (
+        <ProfileModal
+          me={me}
+          onClose={() => setProfileModal(false)}
+          onSaved={(name) => {
+            setMe({ ...me, name });
+            setProfileModal(false);
+          }}
         />
       )}
     </div>
+  );
+}
+
+function ProfileModal({ me, onClose, onSaved }: { me: Me; onClose: () => void; onSaved: (name: string) => void }) {
+  const [name, setName] = useState(me.name);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <Modal title="Your profile" onClose={onClose}>
+      <form
+        className="profile-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            await api.updateMyName(me.id, name.trim());
+            onSaved(name.trim());
+          } catch (x) {
+            setErr((x as Error).message);
+          }
+        }}
+      >
+        <label className="muted">Display name (shown to your team)</label>
+        <input className="text-input" value={name} required onChange={(e) => setName(e.target.value)} />
+        {err && <div className="auth-error">{err}</div>}
+        <button className="btn primary">Save</button>
+      </form>
+    </Modal>
   );
 }

@@ -1,0 +1,205 @@
+import { useCallback, useState } from 'react';
+import type { BoardActionBody } from '../lib/board';
+import { uid } from '../lib/board';
+import type { Filters } from '../lib/filters';
+import { hasFilters, matches } from '../lib/filters';
+import type { BoardData, Card, Label, Person } from '../lib/types';
+import { CardItem } from './CardItem';
+import { AddForm, EditableText } from './Editable';
+import { Menu } from './ui';
+
+type Drag = { kind: 'card'; id: string } | { kind: 'list'; id: string } | null;
+
+export function KanbanView({
+  data,
+  dispatch,
+  editable,
+  filters,
+  meId,
+  people,
+  onOpenCard,
+}: {
+  data: BoardData;
+  dispatch: (a: BoardActionBody) => void;
+  editable: boolean;
+  filters: Filters;
+  meId: string;
+  people: Map<string, Person>;
+  onOpenCard: (cardId: string) => void;
+}) {
+  const [drag, setDrag] = useState<Drag>(null);
+  const [cardTarget, setCardTarget] = useState<{ listId: string; index: number } | null>(null);
+  const [listTarget, setListTarget] = useState<number | null>(null);
+  const [editingList, setEditingList] = useState(false);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const onEditingChange = useCallback((e: boolean) => setEditingList(e), []);
+  const labels = new Map<string, Label>(data.labels.map((l) => [l.id, l]));
+  const filtering = hasFilters(filters);
+  const lists = data.listOrder.map((id) => data.lists[id]).filter((l) => l && !l.archived);
+
+  const endDrag = () => {
+    setDrag(null);
+    setCardTarget(null);
+    setListTarget(null);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (drag?.kind === 'card' && cardTarget) {
+      dispatch({ type: 'MOVE_CARD', cardId: drag.id, toListId: cardTarget.listId, toIndex: cardTarget.index });
+    } else if (drag?.kind === 'list' && listTarget !== null) {
+      // listTarget indexes visible lists; convert to listOrder index.
+      const targetList = lists[listTarget];
+      const toIndex = targetList ? data.listOrder.indexOf(targetList.id) : data.listOrder.length;
+      dispatch({ type: 'MOVE_LIST', listId: drag.id, toIndex });
+    }
+    endDrag();
+  };
+
+  return (
+    <div className="board-canvas" onDrop={onDrop} onDragOver={(e) => drag && e.preventDefault()}>
+      {lists.map((list, listIndex) => {
+        const visible = list.cardIds.map((id) => data.cards[id]).filter((c): c is Card => !!c && matches(c, filters, meId));
+        const target = cardTarget?.listId === list.id ? cardTarget.index : null;
+        const placeholderAtEnd = target !== null && !visible.some((c) => list.cardIds.indexOf(c.id) === target);
+        const activeCount = list.cardIds.filter((id) => data.cards[id] && !data.cards[id].archived).length;
+
+        return (
+          <div
+            key={list.id}
+            className={`list ${drag?.kind === 'list' && drag.id === list.id ? 'dragging' : ''} ${
+              listTarget === listIndex ? 'drop-before' : ''
+            } ${listTarget === listIndex + 1 && listIndex === lists.length - 1 ? 'drop-after' : ''}`}
+            onDragOver={(e) => {
+              if (!drag) return;
+              e.preventDefault();
+              if (drag.kind === 'list') {
+                const r = e.currentTarget.getBoundingClientRect();
+                setListTarget(e.clientX < r.left + r.width / 2 ? listIndex : listIndex + 1);
+              } else {
+                setCardTarget({ listId: list.id, index: list.cardIds.length });
+              }
+            }}
+          >
+            <div
+              className="list-header"
+              draggable={editable && !editingList}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', list.id);
+                setDrag({ kind: 'list', id: list.id });
+              }}
+              onDragEnd={endDrag}
+            >
+              {editable ? (
+                <EditableText
+                  className="list-title"
+                  value={list.title}
+                  onSave={(title) => dispatch({ type: 'RENAME_LIST', listId: list.id, title })}
+                  onEditingChange={onEditingChange}
+                />
+              ) : (
+                <span className="list-title">{list.title}</span>
+              )}
+              <span className="list-count">{filtering ? `${visible.length}/${activeCount}` : activeCount}</span>
+              {editable && (
+                <span className="menu-anchor">
+                  <button className="icon-btn" title="List actions" onClick={() => setMenuFor(menuFor === list.id ? null : list.id)}>
+                    ⋯
+                  </button>
+                  <Menu open={menuFor === list.id} onClose={() => setMenuFor(null)}>
+                    <button
+                      onClick={() => {
+                        setMenuFor(null);
+                        dispatch({ type: 'ARCHIVE_LIST', listId: list.id, archived: true });
+                      }}
+                    >
+                      Archive list
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMenuFor(null);
+                        for (const cid of list.cardIds)
+                          if (data.cards[cid] && !data.cards[cid].archived)
+                            dispatch({ type: 'UPDATE_CARD', cardId: cid, patch: { archived: true } });
+                      }}
+                    >
+                      Archive all cards in list
+                    </button>
+                    <button
+                      className="danger-text"
+                      onClick={() => {
+                        setMenuFor(null);
+                        if (confirm(`Delete list "${list.title}" and its ${list.cardIds.length} card(s)? This cannot be undone.`))
+                          dispatch({ type: 'DELETE_LIST', listId: list.id });
+                      }}
+                    >
+                      Delete list
+                    </button>
+                  </Menu>
+                </span>
+              )}
+            </div>
+
+            <div className="list-cards">
+              {visible.map((card) => {
+                const realIndex = list.cardIds.indexOf(card.id);
+                return (
+                  <div key={card.id}>
+                    {target === realIndex && <div className="card-placeholder" />}
+                    <CardItem
+                      card={card}
+                      labels={labels}
+                      people={people}
+                      draggable={editable}
+                      dragging={drag?.kind === 'card' && drag.id === card.id}
+                      onOpen={() => onOpenCard(card.id)}
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        e.dataTransfer.effectAllowed = 'move';
+                        e.dataTransfer.setData('text/plain', card.id);
+                        setDrag({ kind: 'card', id: card.id });
+                      }}
+                      onDragEnd={endDrag}
+                      onDragOver={(e) => {
+                        if (drag?.kind !== 'card') return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const r = e.currentTarget.getBoundingClientRect();
+                        const before = e.clientY < r.top + r.height / 2;
+                        setCardTarget({ listId: list.id, index: before ? realIndex : realIndex + 1 });
+                      }}
+                    />
+                  </div>
+                );
+              })}
+              {placeholderAtEnd && <div className="card-placeholder" />}
+              {filtering && visible.length === 0 && activeCount > 0 && <div className="muted small-note">No matching cards</div>}
+            </div>
+
+            {editable && (
+              <AddForm
+                label="Add a card"
+                placeholder="Enter a title for this card…"
+                submitLabel="Add card"
+                multiline
+                onAdd={(title) => dispatch({ type: 'ADD_CARD', listId: list.id, cardId: uid(), title })}
+              />
+            )}
+          </div>
+        );
+      })}
+
+      {editable && (
+        <div className="list add-list">
+          <AddForm
+            label={lists.length ? 'Add another list' : 'Add a list'}
+            placeholder="Enter list title…"
+            submitLabel="Add list"
+            onAdd={(title) => dispatch({ type: 'ADD_LIST', listId: uid(), title })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
