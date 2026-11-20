@@ -516,3 +516,10 @@ body:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: 
 .profile-form h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; }
 .text-input:disabled { background: #f1f2f4; color: #626f86; }
 .profile-head { flex-direction: row !important; gap: 10px; align-items: center; }
+
+/* Header (and its dropdown menus) must stay above the lists, even with the blur effect on photos. */
+.board-header { position: relative; z-index: 10; }
+.filter-bar { position: relative; z-index: 9; }
+.menu > button { display: flex; align-items: center; gap: 8px; }
+.menu > button svg { flex-shrink: 0; color: #626f86; }
+.menu > button.danger-text svg { color: inherit; }

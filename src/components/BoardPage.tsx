@@ -1,4 +1,20 @@
-import { Calendar, Filter, Kanban, MoreHorizontal, Star, Table2, UserPlus } from 'lucide-react';
+import {
+  Archive,
+  Calendar,
+  Download,
+  Filter,
+  History,
+  Image,
+  Kanban,
+  Link2,
+  LogOut,
+  MoreHorizontal,
+  Star,
+  Table2,
+  Tag,
+  Trash2,
+  UserPlus,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as api from '../lib/api';
@@ -177,18 +193,18 @@ export function BoardPage({
                 ))}
               </div>
             )}
-            {editable && <button onClick={() => (setMenuOpen(false), setPanel('background'))}>🖼 Change background</button>}
-            {editable && <button onClick={() => (setMenuOpen(false), setPanel('labels'))}>🏷 Labels</button>}
+            {editable && <button onClick={() => (setMenuOpen(false), setPanel('background'))}><Image size={16} /> Change background</button>}
+            {editable && <button onClick={() => (setMenuOpen(false), setPanel('labels'))}><Tag size={16} /> Labels</button>}
             {editable && guestNames.length > 0 && (
-              <button onClick={() => (setMenuOpen(false), setPanel('guests'))}>🔗 Link imported people ({guestNames.length})</button>
+              <button onClick={() => (setMenuOpen(false), setPanel('guests'))}><Link2 size={16} /> Link imported people ({guestNames.length})</button>
             )}
-            <button onClick={() => (setMenuOpen(false), setPanel('activity'))}>🕘 Activity</button>
+            <button onClick={() => (setMenuOpen(false), setPanel('activity'))}><History size={16} /> Activity</button>
             <button onClick={() => (setMenuOpen(false), setPanel('archive'))}>
-              🗄 Archived items ({archivedCards.length + archivedLists.length})
+              <Archive size={16} /> Archived items ({archivedCards.length + archivedLists.length})
             </button>
             <hr />
-            <button onClick={() => (setMenuOpen(false), exportJSON())}>⇩ Export board (JSON)</button>
-            <button onClick={() => (setMenuOpen(false), exportCSV())}>⇩ Export cards (CSV / Excel)</button>
+            <button onClick={() => (setMenuOpen(false), exportJSON())}><Download size={16} /> Export board (JSON)</button>
+            <button onClick={() => (setMenuOpen(false), exportCSV())}><Download size={16} /> Export cards (CSV / Excel)</button>
             <hr />
             {admin ? (
               <button
@@ -200,7 +216,7 @@ export function BoardPage({
                   onBoardGone();
                 }}
               >
-                Delete board
+                <Trash2 size={16} /> Delete board
               </button>
             ) : (
               <button
@@ -211,7 +227,7 @@ export function BoardPage({
                   onBoardGone();
                 }}
               >
-                Leave board
+                <LogOut size={16} /> Leave board
               </button>
             )}
           </Menu>
