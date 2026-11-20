@@ -48,6 +48,7 @@ import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
 import { BoardSettingsModal } from './BoardSettings';
 import { DuePrompt } from './DuePrompt';
+import { VoiceAssistant } from './VoiceAssistant';
 import { ExpensesView } from './ExpensesView';
 import { useExpenses } from '../lib/expenses';
 import { ActivityFeed } from './ActivityFeed';
@@ -675,6 +676,17 @@ export function BoardPage({
         </Modal>
       )}
 
+      {data && editable && (
+        <VoiceAssistant
+          boardId={meta.id}
+          data={data}
+          people={people.filter((p) => p.role !== 'viewer')}
+          me={me}
+          canAddCards={boardSettings(data).addCards === 'editors' || admin}
+          money={expenseState.allowed ? expenseState.settings : null}
+          dispatch={dispatch}
+        />
+      )}
       {pendingMove && data && (
         <DuePrompt
           cardTitle={data.cards[pendingMove.cardId]?.title ?? 'this card'}
