@@ -47,3 +47,36 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
 }
+
+import LocalAuthentication
+import WebKit
+
+/// Karlo's web view: adds `window.KarloNative` (as on Android) so the page can offer App lock with Face ID / Touch ID / passcode.
+class KarloViewController: CAPBridgeViewController, WKScriptMessageHandler {
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        guard let controller = webView?.configuration.userContentController else { return }
+        var error: NSError?
+        let canLock = LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
+        let js = """
+        window.KarloNative = {
+          passkeys: function () { return false; },
+          firebase: function () { return false; },
+          canLock: function () { return \(canLock ? "true" : "false"); },
+          unlock: function (title) { window.webkit.messageHandlers.karloUnlock.postMessage(String(title || '')); }
+        };
+        """
+        controller.addUserScript(WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        controller.add(self, name: "karloUnlock")
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        let title = (message.body as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Unlock Karlo"
+        LAContext().evaluatePolicy(.deviceOwnerAuthentication, localizedReason: title) { ok, err in
+            let reason = ok ? "" : (err?.localizedDescription ?? "")
+            let quoted = String(data: try! JSONSerialization.data(withJSONObject: [reason]), encoding: .utf8)!
+            let js = "window.dispatchEvent(new CustomEvent('karlo:unlock',{detail:{ok:\(ok ? "true" : "false"),reason:\(quoted)[0]}}))"
+            DispatchQueue.main.async { self.webView?.evaluateJavaScript(js, completionHandler: nil) }
+        }
+    }
+}
