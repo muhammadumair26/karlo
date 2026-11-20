@@ -45,5 +45,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Karlo uses the microphone for the voice assistant, so you can add cards and expenses by speaking.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Karlo turns what you say into text to add cards and expenses with the voice assistant.</string>
 </dict>
 </plist>

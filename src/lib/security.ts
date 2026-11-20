@@ -1,8 +1,10 @@
 import { supabase } from '../supabase';
+import { isNativeApp } from './platform';
 
 /** Passkeys (Face ID / Touch ID / fingerprint / Windows Hello / phone) and two-step sign-in helpers. */
 
-export const passkeysSupported = () => typeof window !== 'undefined' && !!window.PublicKeyCredential && window.isSecureContext;
+/** Passkeys work on the website. Inside the iOS/Android app they need app-domain linking first, so they're hidden there. */
+export const passkeysSupported = () => !isNativeApp && typeof window !== 'undefined' && !!window.PublicKeyCredential && window.isSecureContext;
 
 /** Plain-language message for passkey / WebAuthn errors. */
 export function friendlyAuthError(e: unknown): string {

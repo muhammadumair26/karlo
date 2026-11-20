@@ -4,7 +4,9 @@ import { createPortal } from 'react-dom';
 import { uid, type BoardActionBody } from '../lib/board';
 import { CATEGORIES, CURRENCIES, fetchRate, INCOME_CATEGORIES, saveExpense, type ExpenseSettings } from '../lib/expenses';
 import { boardSettings, type BoardData, type Me, type Person } from '../lib/types';
+import { isNativeApp } from '../lib/platform';
 import { supabase } from '../supabase';
+import { SpeechRecognition as NativeSpeech } from '@capacitor-community/speech-recognition';
 import { showAlert } from './dialog';
 
 type Intent = {
@@ -76,7 +78,8 @@ export function VoiceAssistant({
   const [err, setErr] = useState<string | null>(null);
   const [it, setIt] = useState<Intent | null>(null);
   const rec = useRef<Rec | null>(null);
-  const supported = !!SpeechRec();
+  // In the iOS / Android app the phone's own speech recognition is used (plugin); on the web, the browser's.
+  const supported = isNativeApp || !!SpeechRec();
 
   const lists = data.listOrder.map((id) => data.lists[id]).filter((l) => l && !l.archived);
   const listByName = (n: string) => lists.find((l) => l.title.toLowerCase() === n.toLowerCase());
@@ -84,6 +87,7 @@ export function VoiceAssistant({
 
   const stop = () => {
     rec.current?.stop();
+    if (isNativeApp) void NativeSpeech.stop().catch(() => {});
     setListening(false);
   };
   const reset = () => {
@@ -99,7 +103,39 @@ export function VoiceAssistant({
     setTyping(false);
   };
 
+  const listenNative = async () => {
+    reset();
+    try {
+      const perm = await NativeSpeech.requestPermissions();
+      if (perm.speechRecognition !== 'granted') {
+        setErr('Microphone permission is off for Karlo. Turn it on in your phone settings, or type instead.');
+        setTyping(true);
+        return;
+      }
+      let latest = '';
+      await NativeSpeech.removeAllListeners();
+      await NativeSpeech.addListener('partialResults', (d) => {
+        latest = d.matches?.[0] ?? latest;
+        setText(latest);
+      });
+      await NativeSpeech.addListener('listeningState', (d) => {
+        if (d.status === 'stopped') {
+          setListening(false);
+          void NativeSpeech.removeAllListeners();
+          if (latest.trim()) void submit(latest.trim());
+        }
+      });
+      setListening(true);
+      await NativeSpeech.start({ language: navigator.language || 'en-US', partialResults: true, popup: false, maxResults: 1 });
+    } catch (e) {
+      setListening(false);
+      setErr("Couldn't start listening. Try again or type instead.");
+      console.error(e);
+    }
+  };
+
   const listen = () => {
+    if (isNativeApp) return void listenNative();
     const R = SpeechRec();
     if (!R) {
       setTyping(true);
@@ -158,7 +194,13 @@ export function VoiceAssistant({
     setBusy(false);
   };
 
-  useEffect(() => () => rec.current?.stop(), []);
+  useEffect(
+    () => () => {
+      rec.current?.stop();
+      if (isNativeApp) void NativeSpeech.stop().catch(() => {});
+    },
+    [],
+  );
 
   const set = (p: Partial<Intent>) => it && setIt({ ...it, ...p });
   const rules = boardSettings(data);
