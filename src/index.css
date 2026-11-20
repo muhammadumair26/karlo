@@ -1682,3 +1682,15 @@ body:has(.app-banner) .va-fab { bottom: 148px; }
 .va-result:hover, .va-result:focus-visible { border-color: #388bff; background: #f5f9ff; }
 .va-result-title { font-weight: 600; font-size: 14px; }
 .va-result-meta { font-size: 12px; color: #626f86; }
+
+/* Voice check screen: fit phone width (no spill to the right), scroll if tall, clear the home bar. */
+.va { box-sizing: border-box; max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; padding-bottom: max(18px, env(safe-area-inset-bottom)); }
+.va-confirm, .va-fields { min-width: 0; }
+.va-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.va-fields label { min-width: 0; }
+.va-fields input, .va-fields select, .va-fields textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.va-money select { flex: 0 0 auto; width: auto; }
+.va-reply { overflow-wrap: anywhere; }
+.va-confirm .kd-actions { margin-top: 8px; }
+.va-confirm .kd-actions .btn { flex: 1; }
+@media (max-width: 380px) { .va-fields { grid-template-columns: minmax(0, 1fr); } }
