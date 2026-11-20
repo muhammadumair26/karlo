@@ -85,6 +85,8 @@ export function ExpensesView({
   const partnerIds = settings.partners.map((p) => p.id);
   const frac = shareFractions(settings.partners);
   const splitLabel = settings.partners.map((p) => Math.round((frac.get(p.id) ?? 0) * 100)).join('/');
+  // Just one person tracking costs: no split, no who-owes-whom.
+  const solo = settings.partners.length <= 1;
 
   // Filters (summary tiles, charts and table all follow them; balances always use everything).
   const months = [...new Set(expenses.map((e) => e.spent_on.slice(0, 7)))].sort().reverse();
@@ -131,7 +133,7 @@ export function ExpensesView({
         <div className="ex-title">
           <Wallet size={18} /> Expenses
           <span className="ex-private" title={`Only ${settings.partners.map((p) => nameOf(p.id)).join(' and ')} can see this`}>
-            <Lock size={12} /> Partners only
+            <Lock size={12} /> {solo ? 'Private · only you' : 'Partners only'}
           </span>
         </div>
         <span className="header-spacer" />
@@ -139,7 +141,7 @@ export function ExpensesView({
           <Download size={15} /> Export CSV
         </button>
         <button className="btn translucent" onClick={() => setShowSettings(true)}>
-          <Settings2 size={15} /> Budget & partners
+          <Settings2 size={15} /> {solo ? 'Budget & settings' : 'Budget & partners'}
         </button>
         <button className="btn primary" onClick={() => setForm({})}>
           <Plus size={15} /> Add expense
@@ -178,6 +180,7 @@ export function ExpensesView({
       </div>
 
       <div className="dash-grid ex-grid">
+        {!solo && (
         <section className="dash-card ex-partners">
           <div className="dash-card-head">
             <h4>Partners · who owes whom</h4>
@@ -221,6 +224,7 @@ export function ExpensesView({
             <p className="muted ex-hint">Shared expenses paid personally are split {splitLabel}. Everyone is even right now.</p>
           )}
         </section>
+        )}
 
         <section className="dash-card">
           <div className="dash-card-head">
@@ -332,7 +336,7 @@ export function ExpensesView({
                             {data.cards[e.card_id].title}
                           </button>
                         )}
-                        {e.kind === 'expense' && e.paid_by && !e.shared && <span className="ex-tag">Not split</span>}
+                        {!solo && e.kind === 'expense' && e.paid_by && !e.shared && <span className="ex-tag">Not split</span>}
                         {e.note && <span className="muted">{e.note}</span>}
                       </span>
                     </div>
@@ -534,7 +538,8 @@ export function ExpenseForm({
           title: settle ? f.title || 'Settle up' : f.title.trim(),
           category: settle ? 'Partner payment' : f.category.trim() || 'Other',
           paid_to: settle ? f.paid_to : null,
-          shared: settle ? false : f.shared,
+          // Solo: never split, so adding a partner later doesn't turn old costs into debts.
+          shared: settle || partnerIds.length < 2 ? false : f.shared,
           card_id: settle ? null : f.card_id,
         },
         edit?.id,
@@ -549,7 +554,7 @@ export function ExpenseForm({
   return (
     <Modal title={edit ? 'Edit' : settle ? 'Record a partner payment' : 'Add expense'} onClose={onClose}>
       <form className="ex-form" onSubmit={submit}>
-        {!edit && (
+        {!edit && partnerIds.length > 1 && (
           <div className="auth-tabs" role="tablist">
             <button type="button" className={!settle ? 'on' : ''} onClick={() => set({ kind: 'expense' })}>
               <Receipt size={14} /> Expense
@@ -623,7 +628,7 @@ export function ExpenseForm({
                 </select>
               </label>
             </div>
-            {f.paid_by && (
+            {f.paid_by && partnerIds.length > 1 && (
               <label className="ex-check">
                 <input type="checkbox" checked={f.shared} onChange={(e) => set({ shared: e.target.checked })} />
                 Business cost — split between partners ({settings.partners.map((p) => `${nameOf(p.id).split(/[\s.]/)[0]} ${Math.round((shareFractions(settings.partners).get(p.id) ?? 0) * 100)}%`).join(', ')})
@@ -806,7 +811,7 @@ export function CardExpenses({
               Expenses · {money(total(mine), cur)}
             </h4>
             <span className="ex-private dark" title="Only the project partners see this">
-              <Lock size={11} /> Partners only
+              <Lock size={11} /> {state.settings.partners.length > 1 ? 'Partners only' : 'Only you'}
             </span>
             <button className="btn" onClick={() => onAddingChange(true)}>
               Add
