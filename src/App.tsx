@@ -11,8 +11,10 @@ import { Avatar, download, Menu, Modal } from './components/ui';
 import { ProfileModal } from './components/ProfileModal';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import * as api from './lib/api';
-import { starterBoard } from './lib/board';
+import { starterBoard, uid } from './lib/board';
 import { karloExport } from './lib/importers';
+import { registerServiceWorker } from './lib/push';
+import { parseCardLink } from './lib/recent';
 import type { BoardMeta, Me, Workspace } from './lib/types';
 import { BOARD_COLORS } from './lib/types';
 import { openedFromSetPasswordLink, supabase } from './supabase';
@@ -153,7 +155,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
     if (!supabase) return;
     const sb = supabase;
     const ch = sb
-      .channel(`nav:${userId}`)
+      .channel(`nav:${userId}:${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'boards' }, (p) => {
         // Content-only saves are handled by the open board; only reload for title/colour/new/deleted boards.
         const n = p.new as Partial<BoardMeta> | undefined;
@@ -196,6 +198,19 @@ function Home({ userId, email }: { userId: string; email: string }) {
     },
     [select],
   );
+
+  // Clicking a push notification while Karlo is open: the service worker asks this tab to open the card.
+  useEffect(() => {
+    void registerServiceWorker();
+    if (!('serviceWorker' in navigator)) return;
+    const onMsg = (e: MessageEvent) => {
+      if (e.data?.type !== 'karlo:open-url') return;
+      const target = parseCardLink(e.data.url);
+      if (target) openFromAnywhere(target.boardId, target.cardId);
+    };
+    navigator.serviceWorker.addEventListener('message', onMsg);
+    return () => navigator.serviceWorker.removeEventListener('message', onMsg);
+  }, [openFromAnywhere]);
 
   // Card links (attachments) and shared URLs like /?board=…&card=… open the card.
   useEffect(() => {

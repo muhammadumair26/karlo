@@ -1,7 +1,9 @@
-import { Bell, BellRing, CheckCheck, X } from 'lucide-react';
+import { Bell, BellOff, BellRing, CheckCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { loadNotifications, markRead, markUnread, type NotificationRow } from '../lib/notify';
+import { uid } from '../lib/board';
+import { disablePush, enablePush, pushState, type PushState } from '../lib/push';
 import { supabase } from '../supabase';
 import { Avatar, timeAgo } from './ui';
 
@@ -18,37 +20,45 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
       return false;
     }
   });
-  const [desktop, setDesktop] = useState(() => (typeof Notification !== 'undefined' ? Notification.permission : 'denied'));
-  const seen = useRef<Set<string>>(new Set());
-  const first = useRef(true);
+  const [push, setPush] = useState<PushState>('unsupported');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushErr, setPushErr] = useState<string | null>(null);
+  const mounted = useRef(true);
 
+  useEffect(() => {
+    mounted.current = true;
+    pushState().then((st) => mounted.current && setPush(st)).catch(() => {});
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const togglePush = async () => {
+    setPushBusy(true);
+    setPushErr(null);
+    try {
+      setPush(push === 'on' ? await disablePush() : await enablePush());
+    } catch (e) {
+      setPushErr((e as Error).message);
+    }
+    setPushBusy(false);
+  };
+
+  // (System pop-ups now come from push via the service worker, even when Karlo is closed.)
   const reload = useCallback(async () => {
     try {
-      const rows = await loadNotifications();
-      // Desktop pop-up for brand-new notifications while the tab is in the background.
-      if (!first.current && typeof Notification !== 'undefined' && Notification.permission === 'granted' && document.hidden) {
-        for (const n of rows.filter((r) => !r.read_at && !seen.current.has(r.id)).slice(0, 3)) {
-          const note = new Notification(`${n.actor?.name ?? 'Someone'} · ${n.card_title}`, { body: n.body, tag: n.id, icon: '/icon-192.png' });
-          note.onclick = () => {
-            window.focus();
-            onOpenCard(n.board_id, n.card_id);
-          };
-        }
-      }
-      rows.forEach((r) => seen.current.add(r.id));
-      first.current = false;
-      setItems(rows);
+      setItems(await loadNotifications());
     } catch {
       /* table not set up yet / offline */
     }
-  }, [onOpenCard]);
+  }, []);
 
   useEffect(() => {
     void reload();
     if (!supabase) return;
     const sb = supabase;
     const ch = sb
-      .channel(`notifications:${userId}`)
+      .channel(`notifications:${userId}:${uid()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => void reload())
       .subscribe();
     const onVisible = () => document.visibilityState === 'visible' && void reload();
@@ -119,14 +129,15 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
               </button>
             </div>
             <div className="notif-tools">
-              {desktop === 'default' && (
-                <button
-                  className="link-btn"
-                  onClick={async () => setDesktop(await Notification.requestPermission())}
-                  title="Show a pop-up on your computer when something happens while Karlo is in the background"
-                >
-                  <BellRing size={13} /> Turn on desktop alerts
+              {push === 'on' && (
+                <button className="link-btn" onClick={togglePush} disabled={pushBusy} title="Stop push notifications on this device">
+                  <BellRing size={13} /> Push is on · turn off
                 </button>
+              )}
+              {push === 'denied' && (
+                <span className="muted push-note">
+                  <BellOff size={13} /> Notifications are blocked for Karlo in this browser's site settings
+                </span>
               )}
               <span className="header-spacer" />
               {unread > 0 && (
@@ -137,6 +148,28 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
             </div>
 
             <div className="notif-list">
+              {push === 'off' && (
+                <div className="push-cta">
+                  <BellRing size={22} />
+                  <div>
+                    <strong>Get notified even when Karlo is closed</strong>
+                    <span className="muted">Mentions, new cards assigned to you and updates — as pop-ups on this device.</span>
+                    {pushErr && <span className="error-text">{pushErr}</span>}
+                  </div>
+                  <button className="btn primary" onClick={togglePush} disabled={pushBusy}>
+                    {pushBusy ? 'Turning on…' : 'Turn on'}
+                  </button>
+                </div>
+              )}
+              {push === 'ios-needs-home-screen' && (
+                <div className="push-cta">
+                  <BellRing size={22} />
+                  <div>
+                    <strong>Want notifications on your iPhone?</strong>
+                    <span className="muted">Tap Share → “Add to Home Screen”, open Karlo from there, then turn on notifications here.</span>
+                  </div>
+                </div>
+              )}
               {groups.map((g) => (
                 <div key={g.head.id + g.key} className="notif-group">
                   <button
@@ -154,7 +187,18 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
                     </span>
                   </button>
                   {g.rows.map((n) => (
-                    <div key={n.id} className={`notif-row ${n.read_at ? '' : 'unread'}`}>
+                    <div
+                      key={n.id}
+                      className={`notif-row ${n.read_at ? '' : 'unread'}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        void setRead([n.id]);
+                        setOpen(false);
+                        onOpenCard(n.board_id, n.card_id);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLElement).click()}
+                    >
                       <Avatar id={n.actor_id} name={n.actor?.name ?? '?'} src={n.actor?.avatar_url} size={28} />
                       <div className="notif-text">
                         <strong>{n.actor?.name ?? 'Someone'}</strong>
@@ -165,7 +209,8 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
                       <button
                         className={`unread-dot ${n.read_at ? 'read' : ''}`}
                         title={n.read_at ? 'Mark as unread' : 'Mark as read'}
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.stopPropagation();
                           if (n.read_at) {
                             setItems((xs) => xs.map((x) => (x.id === n.id ? { ...x, read_at: null } : x)));
                             await markUnread(n.id);

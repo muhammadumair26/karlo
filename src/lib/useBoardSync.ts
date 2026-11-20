@@ -118,7 +118,7 @@ export function useBoardSync(boardId: string, me: Me) {
       .catch(() => alive.current && setStatus('offline'));
 
     const channel = sb
-      .channel(`board:${boardId}`)
+      .channel(`board:${boardId}:${uid()}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'boards', filter: `id=eq.${boardId}` }, (payload) => {
         const row = payload.new as { data?: unknown; version?: number };
         const cur = confirmedRef.current;
