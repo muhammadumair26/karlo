@@ -11,6 +11,7 @@ import {
   History,
   Image,
   Kanban,
+  Timer,
   LayoutGrid,
   Link2,
   LogOut,
@@ -44,6 +45,7 @@ import { TimelineView } from './TimelineView';
 import { CardModal } from './CardModal';
 import { EditableText } from './Editable';
 import { KanbanView } from './KanbanView';
+import { TimeView } from './TimeView';
 import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
@@ -63,7 +65,7 @@ import { handleOf } from '../lib/notify';
 import { Avatar, download, Menu, Modal } from './ui';
 import { askConfirm } from './dialog';
 
-type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map' | 'expenses';
+type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map' | 'expenses' | 'time';
 
 const VIEWS: { id: View; label: string; Icon: typeof Kanban }[] = [
   { id: 'board', label: 'Board', Icon: Kanban },
@@ -72,6 +74,7 @@ const VIEWS: { id: View; label: string; Icon: typeof Kanban }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: Gauge },
   { id: 'timeline', label: 'Timeline', Icon: GanttChart },
   { id: 'map', label: 'Map', Icon: MapPin },
+  { id: 'time', label: 'Time', Icon: Timer },
   { id: 'expenses', label: 'Finance', Icon: Wallet },
 ];
 
@@ -578,6 +581,8 @@ export function BoardPage({
         />
       ) : shownView === 'timeline' ? (
         <TimelineView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+      ) : shownView === 'time' ? (
+        <TimeView data={data} people={peopleMap} meId={me.id} onOpenCard={setOpenCardId} />
       ) : shownView === 'expenses' ? (
         <ExpensesView boardId={meta.id} boardTitle={meta.title} isOwner={isOwner} state={expenseState} data={data} people={peopleMap} me={me} onOpenCard={setOpenCardId} />
       ) : (

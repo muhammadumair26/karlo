@@ -1886,3 +1886,55 @@ body:has(.app-banner) .va-fab { bottom: 148px; }
 .run-square { width: 11px; height: 11px; border-radius: 2px; background: #fff; }
 @media (max-width: 700px) { .run-timer { left: 14px; bottom: 80px; } }
 body:has(.app-banner) .run-timer { bottom: 152px; }
+
+/* ---------- time report view */
+.time-view { background: #f7f8fa; }
+.tm-scroll { flex: 1; overflow: auto; padding: 18px 20px 28px; }
+.tm-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.tm-ranges { display: inline-flex; background: #e9ebee; border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.tm-ranges button { border: none; background: none; padding: 6px 12px; border-radius: 8px; font: inherit; font-size: 13.5px; font-weight: 500; color: #44546f; cursor: pointer; }
+.tm-ranges button:hover { color: #172b4d; }
+.tm-ranges button.on { background: #fff; color: #172b4d; font-weight: 600; box-shadow: 0 1px 3px rgba(9, 30, 66, .15); }
+.tm-who { width: auto; min-width: 140px; }
+.tm-head .btn.small { gap: 6px; }
+.tm-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.tm-stat { background: #fff; border: 1px solid #e6e8ec; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.tm-stat span { font-size: 12.5px; color: #626f86; font-weight: 500; }
+.tm-stat b { font-size: 24px; color: #172b4d; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.tm-card { background: #fff; border: 1px solid #e6e8ec; border-radius: 14px; padding: 16px 18px; margin-bottom: 14px; min-width: 0; }
+.tm-card h4 { margin: 0 0 14px; font-size: 14px; color: #172b4d; }
+.tm-chart { display: flex; align-items: stretch; gap: 10px; height: 190px; }
+.tm-chart.dense { gap: 3px; }
+.tm-col { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.tm-val { font-size: 11.5px; font-weight: 600; color: #44546f; height: 15px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tm-chart.dense .tm-val { display: none; }
+.tm-bar-track { flex: 1; width: 100%; max-width: 46px; display: flex; align-items: flex-end; border-radius: 6px; background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), #f0f1f3 calc(25% - 1px) 25%); }
+.tm-bar { width: 100%; min-height: 0; border-radius: 4px 4px 0 0; background: #0c66e4; transition: height .25s; }
+.tm-col:hover .tm-bar { background: #0055cc; }
+.tm-col.today .tm-day { color: #0c66e4; font-weight: 700; }
+.tm-day { font-size: 12px; color: #626f86; }
+.tm-chart.dense .tm-day { font-size: 10.5px; }
+.tm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.tm-grid .tm-card { margin-bottom: 0; }
+.tm-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.tm-rows li { display: flex; align-items: center; gap: 12px; }
+.tm-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.tm-row-top { display: flex; align-items: baseline; gap: 10px; }
+.tm-row-top b { margin-left: auto; color: #172b4d; font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tm-name { font-size: 14px; color: #172b4d; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.tm-card-link { border: none; background: none; padding: 0; font: inherit; font-size: 14px; color: #172b4d; font-weight: 500; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; display: inline-flex; align-items: center; gap: 6px; }
+.tm-card-link:hover { color: #0c66e4; text-decoration: underline; }
+.tm-meter { height: 6px; border-radius: 99px; background: #f0f1f3; overflow: hidden; }
+.tm-meter > div { height: 100%; border-radius: 99px; background: #0c66e4; }
+.tm-rows small { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-live { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #22a06b; animation: tt-pulse 1.4s ease-in-out infinite; }
+.tm-empty { text-align: center; padding: 70px 20px; color: #626f86; }
+.tm-empty h3 { margin: 12px 0 6px; color: #172b4d; }
+.tm-none { text-align: center; padding: 30px 0; }
+@media (max-width: 700px) {
+  .tm-scroll { padding: 14px 12px 90px; }
+  .tm-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tm-stat b { font-size: 20px; }
+  .tm-chart { height: 160px; gap: 6px; }
+  .tm-val { font-size: 10px; }
+}
