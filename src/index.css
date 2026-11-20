@@ -1102,3 +1102,21 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
   .searchbar:focus-within input::placeholder { color: #626f86; }
   .searchbar:focus-within .search-icon { left: 11px; right: auto; color: #626f86; }
 }
+
+/* ---------- Sidebar close (phones) ---------- */
+.sidebar-top, .sidebar-scrim { display: none; }
+@media (max-width: 720px) {
+  .sidebar-scrim { display: block; position: absolute; inset: 0; z-index: 3; background: rgba(9,12,20,.45); }
+  .sidebar { z-index: 4 !important; width: 82vw; max-width: 320px; box-shadow: 4px 0 24px rgba(0,0,0,.35); }
+  .sidebar-top { display: flex; align-items: center; justify-content: space-between; margin: -4px 0 4px; }
+  .sidebar-close { font-size: 18px; width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,.15); }
+}
+@media (max-width: 720px) { .sidebar { top: 0 !important; } }
+@media (max-width: 720px) {
+  /* Above the board header (z 10) so nothing shows through. */
+  .sidebar-scrim { z-index: 11 !important; }
+  .sidebar { z-index: 12 !important; }
+}
+@media (max-width: 720px) {
+  .sidebar, body:has(.board-bg) .sidebar { background: #111a2e !important; backdrop-filter: none; }
+}

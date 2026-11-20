@@ -314,8 +314,11 @@ function Home({ userId, email }: { userId: string; email: string }) {
       {error && <div className="banner-error">⚠ {error}</div>}
 
       <div className="body">
+        {/* Phones: tap outside the sidebar to close it. */}
+        {sidebarOpen && <div className="sidebar-scrim" onClick={() => setSidebarOpen(false)} />}
         {sidebarOpen && (
           <Sidebar
+            onClose={() => setSidebarOpen(false)}
             workspaces={workspaces}
             boards={boards}
             activeBoardId={activeId}

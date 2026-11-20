@@ -12,6 +12,7 @@ export function Sidebar({
   onSelect,
   onNewBoard,
   onOpenWorkspace,
+  onClose,
 }: {
   workspaces: Workspace[];
   boards: BoardMeta[];
@@ -20,6 +21,8 @@ export function Sidebar({
   onSelect: (id: string) => void;
   onNewBoard: (workspaceId: string, title: string) => void;
   onOpenWorkspace: (id: string) => void;
+  /** Phones: close the sidebar (shown as a ✕ at the top). */
+  onClose?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const wsIds = new Set(workspaces.map((w) => w.id));
@@ -39,6 +42,14 @@ export function Sidebar({
 
   return (
     <aside className="sidebar">
+      {onClose && (
+        <div className="sidebar-top">
+          <span className="ws-label">Boards</span>
+          <button className="icon-btn light sidebar-close" onClick={onClose} aria-label="Close sidebar">
+            ✕
+          </button>
+        </div>
+      )}
       {starredBoards.length > 0 && (
         <section className="ws">
           <div className="ws-head">
