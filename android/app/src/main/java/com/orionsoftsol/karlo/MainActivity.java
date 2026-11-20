@@ -25,6 +25,12 @@ public class MainActivity extends BridgeActivity {
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
             public boolean passkeys() { return passkeys; }
+
+            /** True when this build has Firebase set up (google-services.json), so phone notifications can work. */
+            @JavascriptInterface
+            public boolean firebase() {
+                return getResources().getIdentifier("google_app_id", "string", getPackageName()) != 0;
+            }
         }, "KarloNative");
     }
 }

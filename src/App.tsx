@@ -21,6 +21,7 @@ import { karloExport } from './lib/importers';
 import { startPresence } from './lib/presence';
 import { loadPrefs } from './lib/prefs';
 import { isNativeApp } from './lib/platform';
+import { enableNativePush } from './lib/nativePush';
 import { takePendingLink } from './lib/native';
 import { registerServiceWorker } from './lib/push';
 import { parseCardLink } from './lib/recent';
@@ -90,6 +91,10 @@ const bootstraps = new Map<string, Promise<void>>();
 
 function Home({ userId, email }: { userId: string; email: string }) {
   const [me, setMe] = useState<Me | null>(null);
+  // Phone app: turn on notifications that arrive even when the app is closed.
+  useEffect(() => {
+    if (me?.id) void enableNativePush().catch((e) => console.warn('Karlo: phone notifications', e));
+  }, [me?.id]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [boards, setBoards] = useState<BoardMeta[]>([]);
   const [activeId, setActiveId] = useState<string | null>(() => {

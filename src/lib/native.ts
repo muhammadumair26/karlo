@@ -10,7 +10,7 @@ export const takePendingLink = () => {
   pendingLink = null;
   return l;
 };
-function openLink(url: string) {
+export function openLink(url: string) {
   try {
     const u = new URL(url);
     const boardId = u.searchParams.get('board');
