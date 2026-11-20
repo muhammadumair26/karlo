@@ -31,7 +31,7 @@ import { cardListId, uid } from '../lib/board';
 import { dueStatus, formatDate } from '../lib/filters';
 import { CardExpenses, type ExpensesState } from './ExpensesView';
 import type { Attachment, BoardData, Card, CardLocation, Me, Person, Priority } from '../lib/types';
-import { LABEL_COLORS, PRIORITIES } from '../lib/types';
+import { LABEL_COLORS, PRIORITIES, boardSettings } from '../lib/types';
 import { extOf, formatBytes, isImage, fileUrl, MAX_FILE_BYTES, pathsOf, uploadAttachment, useSignedUrls } from '../lib/files';
 import { osmLink, searchPlaces, shortPlace } from '../lib/geocode';
 import { handleOf } from '../lib/notify';
@@ -219,7 +219,8 @@ export function CardModal({
   const owners = card.owners ?? [];
   const isOwner = owners.includes(me.id);
   // Owners (and board admins) manage owners and may delete the card.
-  const canManage = editable && (isOwner || isAdmin);
+  // Who may delete: the owner and admins, or (if the board allows) anyone who can edit.
+  const canManage = editable && (isOwner || isAdmin || boardSettings(data).deleteCards === 'editors');
   const creator = card.createdBy ? peopleById.get(card.createdBy) : undefined;
   const creatorName = creator?.name ?? (card.createdBy === 'import' || !card.createdBy ? 'Imported' : 'Former member');
   // "Leave card": take yourself off as a member. Ownership (the creator) never changes.
@@ -724,7 +725,7 @@ export function CardModal({
               <button
                 className="danger-text"
                 disabled={!canManage}
-                title={canManage ? undefined : 'Only the card owner or a board admin can delete this card'}
+                title={canManage ? undefined : 'Only the card owner or a board admin can delete this card (Board settings)'}
                 onClick={async () => {
                   setMenu(false);
                   if (!canManage) return;

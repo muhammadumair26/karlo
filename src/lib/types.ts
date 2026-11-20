@@ -119,7 +119,29 @@ export interface BoardData {
   activity: Activity[];
   background: string | null; // image URL
   dashboard: DashboardTile[] | null; // null = default tiles
+  settings?: BoardSettings; // board rules (admins); missing = defaults
 }
+
+/** How a board works. Admins change these in Board settings. */
+export interface BoardSettings {
+  requireDue: boolean; // new cards need a due date
+  defaultDueDays: number | null; // pre-filled due date: days from today, or none
+  requireMember: boolean; // new cards need a responsible person
+  addCards: 'editors' | 'admins'; // who can add cards
+  deleteCards: 'owner_admin' | 'editors'; // who can delete cards
+  mentionAssigns: boolean; // @mentioning someone adds them as a member
+}
+
+export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
+  requireDue: true,
+  defaultDueDays: null,
+  requireMember: false,
+  addCards: 'editors',
+  deleteCards: 'owner_admin',
+  mentionAssigns: true,
+};
+
+export const boardSettings = (d: Pick<BoardData, 'settings'> | null | undefined): BoardSettings => ({ ...DEFAULT_BOARD_SETTINGS, ...(d?.settings ?? {}) });
 
 export type DashboardMetric = 'list' | 'label' | 'member' | 'owner' | 'due' | 'priority' | 'status';
 export type DashboardChart = 'bar' | 'pie' | 'line';

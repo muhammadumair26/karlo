@@ -22,6 +22,7 @@ import {
   Upload,
   UserPlus,
   Wallet,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -33,7 +34,7 @@ import { boardToCSV, karloExport } from '../lib/importers';
 import { deleteFiles, pathsOf } from '../lib/files';
 import { markRead, newMentionAssignees, notificationsFor, sendNotifications, type NotificationRow } from '../lib/notify';
 import type { BoardMeta, Me, Person } from '../lib/types';
-import { BACKGROUND_PHOTOS, DUBAI_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
+import { BACKGROUND_PHOTOS, DUBAI_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO, boardSettings } from '../lib/types';
 import { useBoardSync, type SyncStatus } from '../lib/useBoardSync';
 import { CalendarView } from './CalendarView';
 import { DashboardView } from './DashboardView';
@@ -45,6 +46,7 @@ import { KanbanView } from './KanbanView';
 import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
+import { BoardSettingsModal } from './BoardSettings';
 import { ExpensesView } from './ExpensesView';
 import { useExpenses } from '../lib/expenses';
 import { ActivityFeed } from './ActivityFeed';
@@ -123,7 +125,7 @@ export function BoardPage({
       void sendNotifications(notificationsFor(before, b, me, peopleRef.current, meta.id));
       // @mentioning someone on a card makes them responsible: add them as a member.
       // (They already get the "mentioned you" notification, so no extra "added you" one.)
-      const assign = newMentionAssignees(before, b, peopleRef.current);
+      const assign = boardSettings(before).mentionAssigns ? newMentionAssignees(before, b, peopleRef.current) : [];
       if (assign.length && 'cardId' in b) {
         const card = before.cards[b.cardId];
         const names = assign.map((id) => peopleRef.current.find((p) => p.user_id === id)?.name ?? 'someone').join(', ');
@@ -151,7 +153,7 @@ export function BoardPage({
       return 'board';
     }
   });
-  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests'>(null);
+  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests' | 'settings'>(null);
   const [memberTarget, setMemberTarget] = useState<MemberCardTarget | null>(null);
   // My unread notifications on this board, per card (red bell badge on the card, like Trello).
   const [unreadByCard, setUnreadByCard] = useState<Map<string, string[]>>(new Map());
@@ -358,6 +360,7 @@ export function BoardPage({
             {editable && guestNames.length > 0 && (
               <button onClick={() => (setMenuOpen(false), setPanel('guests'))}><Link2 size={16} /> Link imported people ({guestNames.length})</button>
             )}
+            <button onClick={() => (setMenuOpen(false), setPanel('settings'))}><SlidersHorizontal size={16} /> Board settings</button>
             <button onClick={() => (setMenuOpen(false), setPanel('activity'))}><History size={16} /> Activity</button>
             <button onClick={() => (setMenuOpen(false), setPanel('archive'))}>
               <Archive size={16} /> Archived items ({archivedCards.length + archivedLists.length})
@@ -496,9 +499,9 @@ export function BoardPage({
           <p>Loading board…</p>
         </div>
       ) : shownView === 'board' ? (
-        <KanbanView unreadByCard={unreadByCard} boardId={meta.id} data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+        <KanbanView unreadByCard={unreadByCard} boardId={meta.id} data={data} dispatch={dispatch} editable={editable} admin={admin} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : shownView === 'table' ? (
-        <TableView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+        <TableView data={data} dispatch={dispatch} editable={editable} admin={admin} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : shownView === 'calendar' ? (
         <CalendarView data={data} filters={filters} meId={me.id} onOpenCard={setOpenCardId} />
       ) : shownView === 'dashboard' ? (
@@ -657,6 +660,7 @@ export function BoardPage({
         </Modal>
       )}
 
+      {panel === 'settings' && data && <BoardSettingsModal data={data} admin={admin} dispatch={dispatch} onClose={closePanel} />}
       {panel === 'labels' && data && (
         <Modal title="Board labels" onClose={closePanel}>
           <LabelsEditor labels={data.labels} onChange={(labels) => dispatch({ type: 'SET_LABELS', labels })} />

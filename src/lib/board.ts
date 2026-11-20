@@ -1,4 +1,4 @@
-import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List } from './types';
+import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List, BoardSettings } from './types';
 
 export const uid = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -99,7 +99,7 @@ export function normalize(raw: unknown): BoardData {
   }
   const listOrder = (d.listOrder ?? Object.keys(lists)).filter((id) => lists[id]);
   for (const l of Object.values(lists)) l.cardIds = l.cardIds.filter((id) => cards[id]);
-  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null, dashboard: Array.isArray(d.dashboard) ? d.dashboard : null };
+  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null, dashboard: Array.isArray(d.dashboard) ? d.dashboard : null, ...(d.settings && typeof d.settings === 'object' ? { settings: d.settings } : {}) };
 }
 
 // ------------------------------------------------------------------ actions
@@ -116,7 +116,7 @@ export type BoardActionBody =
   | { type: 'ARCHIVE_LIST'; listId: string; archived: boolean }
   | { type: 'DELETE_LIST'; listId: string }
   | { type: 'MOVE_LIST'; listId: string; toIndex: number }
-  | { type: 'ADD_CARD'; listId: string; cardId: string; title: string; due?: string | null }
+  | { type: 'ADD_CARD'; listId: string; cardId: string; title: string; due?: string | null; assignees?: string[] }
   | { type: 'UPDATE_CARD'; cardId: string; patch: Partial<Card>; note?: string }
   | { type: 'MOVE_CARD'; cardId: string; toListId: string; toIndex: number }
   | { type: 'DELETE_CARD'; cardId: string }
@@ -127,6 +127,7 @@ export type BoardActionBody =
   | { type: 'DELETE_ATTACHMENT'; cardId: string; attachmentId: string }
   | { type: 'SET_BACKGROUND'; url: string | null }
   | { type: 'SET_DASHBOARD'; tiles: DashboardTile[] }
+  | { type: 'SET_SETTINGS'; settings: BoardSettings; note?: string }
   | { type: 'MAP_GUEST'; name: string; userId: string | null };
 
 export type BoardAction = BoardActionBody & { meta: ActionMeta };
@@ -192,7 +193,7 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     case 'ADD_CARD': {
       const l = d.lists[a.listId];
       if (!l || d.cards[a.cardId]) return d;
-      const c = newCard(a.cardId, a.title, a.meta.by.id, a.meta.at, a.due ? { due: a.due } : {});
+      const c = newCard(a.cardId, a.title, a.meta.by.id, a.meta.at, { ...(a.due ? { due: a.due } : {}), ...(a.assignees?.length ? { assignees: a.assignees } : {}) });
       return {
         ...d,
         cards: { ...d.cards, [c.id]: c },
@@ -286,6 +287,8 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     }
     case 'SET_DASHBOARD':
       return { ...d, dashboard: a.tiles };
+    case 'SET_SETTINGS':
+      return { ...d, settings: a.settings, activity: log(d, a, a.note || 'changed the board settings') };
     case 'SET_BACKGROUND':
       return { ...d, background: a.url, activity: log(d, a, a.url ? 'changed the board background' : 'removed the board background') };
     case 'MAP_GUEST': {

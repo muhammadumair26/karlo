@@ -5,7 +5,7 @@ import { cardListId, uid } from '../lib/board';
 import type { Filters } from '../lib/filters';
 import { dueStatus, formatDate, matches } from '../lib/filters';
 import type { BoardData, Card, Person } from '../lib/types';
-import { LABEL_COLORS } from '../lib/types';
+import { boardSettings, LABEL_COLORS } from '../lib/types';
 import { Avatar } from './ui';
 
 type SortKey = 'title' | 'list' | 'labels' | 'members' | 'created' | 'due';
@@ -15,6 +15,7 @@ export function TableView({
   data,
   dispatch,
   editable,
+  admin = false,
   filters,
   meId,
   people,
@@ -23,15 +24,23 @@ export function TableView({
   data: BoardData;
   dispatch: (a: BoardActionBody) => void;
   editable: boolean;
+  admin?: boolean;
   filters: Filters;
   meId: string;
   people: Map<string, Person>;
   onOpenCard: (id: string) => void;
 }) {
+  const rules = boardSettings(data);
+  const canAddCards = editable && (rules.addCards === 'editors' || admin);
+  const plusDays = (n: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'list', dir: 1 });
   const [adding, setAdding] = useState(false);
   const activeLists = data.listOrder.filter((id) => !data.lists[id].archived);
-  const [newCard, setNewCard] = useState({ title: '', listId: activeLists[0] ?? '', due: '' });
+  const [newCard, setNewCard] = useState({ title: '', listId: activeLists[0] ?? '', due: rules.defaultDueDays == null ? '' : plusDays(rules.defaultDueDays), member: '' });
   const [dueMissing, setDueMissing] = useState(false);
   const labels = new Map(data.labels.map((l) => [l.id, l]));
   const listIndex = new Map(data.listOrder.map((id, i) => [id, i]));
@@ -83,8 +92,9 @@ export function TableView({
   const addCard = () => {
     const t = newCard.title.trim();
     if (!t || !newCard.listId) return;
-    if (!newCard.due) return setDueMissing(true);
-    dispatch({ type: 'ADD_CARD', listId: newCard.listId, cardId: uid(), title: t, due: newCard.due });
+    if (rules.requireDue && !newCard.due) return setDueMissing(true);
+    if (rules.requireMember && !newCard.member) return setDueMissing(true);
+    dispatch({ type: 'ADD_CARD', listId: newCard.listId, cardId: uid(), title: t, due: newCard.due || null, assignees: newCard.member ? [newCard.member] : [] });
     setNewCard({ ...newCard, title: '' });
     setDueMissing(false);
   };
@@ -210,7 +220,7 @@ export function TableView({
                 </tr>
               );
             })}
-            {adding && editable && (
+            {adding && canAddCards && (
               <tr className="tv-new">
                 <td colSpan={6}>
                   <form
@@ -230,15 +240,32 @@ export function TableView({
                     </select>
                     <input
                       type="date"
-                      required
-                      className={dueMissing && !newCard.due ? 'tv-due-missing' : ''}
+                      required={rules.requireDue}
+                      className={dueMissing && rules.requireDue && !newCard.due ? 'tv-due-missing' : ''}
                       value={newCard.due}
                       onChange={(e) => (setNewCard({ ...newCard, due: e.target.value }), setDueMissing(false))}
-                      aria-label="Due date (required)"
-                      title="Due date (required)"
+                      aria-label={rules.requireDue ? 'Due date (required)' : 'Due date'}
+                      title={rules.requireDue ? 'Due date (required)' : 'Due date'}
                     />
+                    {(rules.requireMember || people.size > 1) && (
+                      <select
+                        className={dueMissing && rules.requireMember && !newCard.member ? 'tv-due-missing' : ''}
+                        value={newCard.member}
+                        onChange={(e) => (setNewCard({ ...newCard, member: e.target.value }), setDueMissing(false))}
+                        aria-label="Responsible person"
+                      >
+                        <option value="">{rules.requireMember ? 'Responsible…' : 'Responsible (optional)'}</option>
+                        {[...people.values()]
+                          .filter((p) => p.role !== 'viewer')
+                          .map((p) => (
+                            <option key={p.user_id} value={p.user_id}>
+                              {p.name}
+                            </option>
+                          ))}
+                      </select>
+                    )}
                     <button className="btn primary">Add card</button>
-                    {dueMissing && !newCard.due && <span className="acf-hint">Pick a due date.</span>}
+                    {dueMissing && <span className="acf-hint">{rules.requireDue && !newCard.due ? 'Pick a due date.' : 'Choose who is responsible.'}</span>}
                     <button type="button" className="btn ghost" onClick={() => setAdding(false)}>
                       Cancel
                     </button>
@@ -256,7 +283,7 @@ export function TableView({
           </tbody>
         </table>
       </div>
-      {editable && activeLists.length > 0 && !adding && (
+      {canAddCards && activeLists.length > 0 && !adding && (
         <button className="tv-add" onClick={() => setAdding(true)}>
           <Plus size={16} /> Add
         </button>

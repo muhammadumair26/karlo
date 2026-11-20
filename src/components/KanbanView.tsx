@@ -8,6 +8,7 @@ import type { BoardData, Card, Label, Person } from '../lib/types';
 import { useSignedUrls } from '../lib/files';
 import { CardItem } from './CardItem';
 import { AddCardForm } from './AddCardForm';
+import { boardSettings } from '../lib/types';
 import { AddForm, EditableText } from './Editable';
 import { Menu } from './ui';
 import { askConfirm } from './dialog';
@@ -28,6 +29,7 @@ export function KanbanView({
   data,
   dispatch,
   editable,
+  admin = false,
   filters,
   meId,
   people,
@@ -38,11 +40,15 @@ export function KanbanView({
   data: BoardData;
   dispatch: (a: BoardActionBody) => void;
   editable: boolean;
+  admin?: boolean;
   filters: Filters;
   meId: string;
   people: Map<string, Person>;
   onOpenCard: (cardId: string) => void;
 }) {
+  const rules = boardSettings(data);
+  const canAddCards = editable && (rules.addCards === 'editors' || admin);
+  const peopleList = [...people.values()].filter((p) => p.role !== 'viewer');
   const [drag, setDrag] = useState<Drag>(null);
   const [cardTarget, setCardTarget] = useState<{ listId: string; index: number } | null>(null);
   const [listTarget, setListTarget] = useState<number | null>(null);
@@ -254,8 +260,13 @@ export function KanbanView({
               {filtering && visible.length === 0 && activeCount > 0 && <div className="muted small-note">No matching cards</div>}
             </div>
 
-            {editable && (
-              <AddCardForm onAdd={(title, due) => dispatch({ type: 'ADD_CARD', listId: list.id, cardId: uid(), title, due })} />
+            {canAddCards && (
+              <AddCardForm
+                settings={rules}
+                people={peopleList}
+                meId={meId}
+                onAdd={(title, due, member) => dispatch({ type: 'ADD_CARD', listId: list.id, cardId: uid(), title, due, assignees: member ? [member] : [] })}
+              />
             )}
           </div>
         );
