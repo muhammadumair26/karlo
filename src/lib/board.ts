@@ -1,4 +1,4 @@
-import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List, BoardSettings } from './types';
+import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List, BoardSettings, AutomationRule } from './types';
 
 export const uid = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -99,7 +99,7 @@ export function normalize(raw: unknown): BoardData {
   }
   const listOrder = (d.listOrder ?? Object.keys(lists)).filter((id) => lists[id]);
   for (const l of Object.values(lists)) l.cardIds = l.cardIds.filter((id) => cards[id]);
-  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null, dashboard: Array.isArray(d.dashboard) ? d.dashboard : null, ...(d.settings && typeof d.settings === 'object' ? { settings: d.settings } : {}) };
+  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null, dashboard: Array.isArray(d.dashboard) ? d.dashboard : null, ...(d.settings && typeof d.settings === 'object' ? { settings: d.settings } : {}), ...(Array.isArray(d.automations) ? { automations: d.automations } : {}) };
 }
 
 // ------------------------------------------------------------------ actions
@@ -128,6 +128,7 @@ export type BoardActionBody =
   | { type: 'SET_BACKGROUND'; url: string | null }
   | { type: 'SET_DASHBOARD'; tiles: DashboardTile[] }
   | { type: 'SET_SETTINGS'; settings: BoardSettings; note?: string }
+  | { type: 'SET_AUTOMATIONS'; rules: AutomationRule[]; note?: string }
   | { type: 'SET_LIST_RULES'; listId: string; rules: { protected?: boolean; requireDue?: boolean } }
   | { type: 'MAP_GUEST'; name: string; userId: string | null };
 
@@ -300,6 +301,8 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
     }
     case 'SET_SETTINGS':
       return { ...d, settings: a.settings, activity: log(d, a, a.note || 'changed the board settings') };
+    case 'SET_AUTOMATIONS':
+      return { ...d, automations: a.rules, activity: log(d, a, a.note || 'changed the board automations') };
     case 'SET_BACKGROUND':
       return { ...d, background: a.url, activity: log(d, a, a.url ? 'changed the board background' : 'removed the board background') };
     case 'MAP_GUEST': {

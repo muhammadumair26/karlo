@@ -124,6 +124,33 @@ export interface BoardData {
   background: string | null; // image URL
   dashboard: DashboardTile[] | null; // null = default tiles
   settings?: BoardSettings; // board rules (admins); missing = defaults
+  automations?: AutomationRule[]; // "when … then …" rules (admins)
+}
+
+/** What starts an automation. */
+export type AutoTrigger =
+  | { type: 'moved_to'; listId: string }
+  | { type: 'added_to'; listId: string }
+  | { type: 'completed' }
+  | { type: 'checklist_done' };
+
+/** What an automation does to the card. */
+export type AutoAction =
+  | { type: 'complete' }
+  | { type: 'uncomplete' }
+  | { type: 'move_to'; listId: string }
+  | { type: 'assign'; userId: string } // '@owner' = the card's owner
+  | { type: 'due_in'; days: number }
+  | { type: 'clear_due' }
+  | { type: 'add_label'; labelId: string }
+  | { type: 'check_all' }
+  | { type: 'notify'; to: 'members' | 'owners' | string; message: string };
+
+export interface AutomationRule {
+  id: string;
+  on: boolean;
+  trigger: AutoTrigger;
+  actions: AutoAction[];
 }
 
 /** How a board works. Admins change these in Board settings. */

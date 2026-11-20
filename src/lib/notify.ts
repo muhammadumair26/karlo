@@ -4,7 +4,7 @@ import { cardListId } from './board';
 import { formatDate } from './filters';
 import type { BoardData, Me, Person } from './types';
 
-export type NotificationKind = 'mention' | 'assigned' | 'comment' | 'attachment' | 'moved' | 'due' | 'completed' | 'reminder' | 'digest';
+export type NotificationKind = 'mention' | 'assigned' | 'comment' | 'attachment' | 'moved' | 'due' | 'completed' | 'reminder' | 'digest' | 'automation';
 
 export interface NotificationRow {
   id: string;

@@ -23,13 +23,14 @@ import {
   UserPlus,
   Wallet,
   SlidersHorizontal,
+  Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import * as api from '../lib/api';
 import type { Filters } from '../lib/filters';
 import { hasFilters, NO_FILTERS } from '../lib/filters';
-import type { BoardActionBody } from '../lib/board';
+import { boardReducer, type BoardAction, type BoardActionBody } from '../lib/board';
 import { boardToCSV, karloExport } from '../lib/importers';
 import { deleteFiles, pathsOf } from '../lib/files';
 import { markRead, newMentionAssignees, notificationsFor, sendNotifications, type NotificationRow } from '../lib/notify';
@@ -47,6 +48,8 @@ import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
 import { BoardSettingsModal } from './BoardSettings';
+import { AutomationModal } from './AutomationModal';
+import { automationFollowUps } from '../lib/automation';
 import { DuePrompt } from './DuePrompt';
 import { VoiceAssistant } from './VoiceAssistant';
 import { ViewsCustomizer } from './ViewsCustomizer';
@@ -141,6 +144,26 @@ export function BoardPage({
       applyAction(b);
       if (!before) return;
       void sendNotifications(notificationsFor(before, b, me, peopleRef.current, meta.id));
+      // Board automations ("when a card … then …") run as follow-up changes by the same person.
+      if (before.automations?.some((r) => r.on)) {
+        const after = boardReducer(before, { ...b, meta: { id: 'auto', at: Date.now(), by: { id: me.id, name: me.name } } } as BoardAction);
+        const follow = automationFollowUps(before, after, b);
+        let state = after;
+        for (const f of follow.actions) {
+          applyAction(f);
+          void sendNotifications(notificationsFor(state, f, me, peopleRef.current, meta.id));
+          state = boardReducer(state, { ...f, meta: { id: 'auto', at: Date.now(), by: { id: me.id, name: me.name } } } as BoardAction);
+        }
+        for (const n of follow.notify) {
+          const card = state.cards[n.cardId];
+          const listId = card ? Object.values(state.lists).find((l) => l.cardIds.includes(card.id))?.id : undefined;
+          void sendNotifications(
+            [...new Set(n.userIds)]
+              .filter((id) => id !== me.id && peopleRef.current.some((p) => p.user_id === id))
+              .map((user_id) => ({ user_id, board_id: meta.id, card_id: n.cardId, kind: 'automation' as const, card_title: card?.title ?? '', list_title: listId ? state.lists[listId].title : '', body: n.body })),
+          );
+        }
+      }
       // @mentioning someone on a card makes them responsible: add them as a member.
       // (They already get the "mentioned you" notification, so no extra "added you" one.)
       const assign = boardSettings(before).mentionAssigns ? newMentionAssignees(before, b, peopleRef.current) : [];
@@ -171,7 +194,7 @@ export function BoardPage({
       return 'board';
     }
   });
-  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests' | 'settings'>(null);
+  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests' | 'settings' | 'automation'>(null);
   const [memberTarget, setMemberTarget] = useState<MemberCardTarget | null>(null);
   // My unread notifications on this board, per card (red bell badge on the card, like Trello).
   const [unreadByCard, setUnreadByCard] = useState<Map<string, string[]>>(new Map());
@@ -389,6 +412,7 @@ export function BoardPage({
               <button onClick={() => (setMenuOpen(false), setPanel('guests'))}><Link2 size={16} /> Link imported people ({guestNames.length})</button>
             )}
             <button onClick={() => (setMenuOpen(false), setPanel('settings'))}><SlidersHorizontal size={16} /> Board settings</button>
+            <button onClick={() => (setMenuOpen(false), setPanel('automation'))}><Zap size={16} /> Automation{data?.automations?.some((r) => r.on) ? ` (${data.automations.filter((r) => r.on).length})` : ''}</button>
             <button onClick={() => (setMenuOpen(false), setPanel('activity'))}><History size={16} /> Activity</button>
             <button onClick={() => (setMenuOpen(false), setPanel('archive'))}>
               <Archive size={16} /> Archived items ({archivedCards.length + archivedLists.length})
@@ -724,6 +748,7 @@ export function BoardPage({
         />
       )}
       {panel === 'settings' && data && <BoardSettingsModal data={data} admin={admin} dispatch={dispatch} onClose={closePanel} />}
+      {panel === 'automation' && data && <AutomationModal data={data} admin={admin} people={people} dispatch={dispatch} onClose={closePanel} />}
       {panel === 'labels' && data && (
         <Modal title="Board labels" onClose={closePanel}>
           <LabelsEditor labels={data.labels} onChange={(labels) => dispatch({ type: 'SET_LABELS', labels })} />
