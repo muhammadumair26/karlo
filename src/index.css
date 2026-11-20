@@ -1388,3 +1388,36 @@ td.ex-in strong { color: #216e4e; }
 .cs-note { font-size: 12px; line-height: 1.5; margin: 0; }
 .cs-actions .btn.ghost { display: inline-flex; align-items: center; gap: 5px; color: #44546f; }
 @media (max-width: 600px) { .cs-scope { grid-template-columns: 1fr; } .cal-sync { font-size: 0; gap: 0; padding: 6px 8px; } .cal-sync svg { width: 18px; height: 18px; } }
+
+/* ---------------------------------------------------------------- card picker */
+.cp { font-weight: 400; }
+.cp-field { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 1px solid #c1c7d0; border-radius: 6px; background: #fff; padding: 8px 10px; min-height: 40px; cursor: pointer; color: #172b4d; }
+.cp-field:hover { border-color: #8590a2; }
+.cp-field:focus-visible { outline: 2px solid #388bff; border-color: transparent; }
+.cp-field.has { background: #f7f8f9; }
+.cp-placeholder { flex: 1; color: #626f86; font-size: 14px; }
+.cp-selected { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cp-chev { color: #626f86; flex-shrink: 0; }
+.cp-clear { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 4px; color: #626f86; flex-shrink: 0; }
+.cp-clear:hover { background: #dcdfe4; color: #172b4d; }
+.cp-title { font-size: 14px; font-weight: 600; color: #172b4d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cp-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11px; color: #626f86; }
+.cp-list { display: inline-flex; align-items: center; gap: 3px; }
+.cp-label { width: 22px; height: 6px; border-radius: 3px; display: inline-block; }
+.cp-due { background: #f1f2f4; padding: 0 5px; border-radius: 3px; }
+.cp-done { background: #dcfff1; color: #216e4e; padding: 0 5px; border-radius: 3px; font-weight: 600; }
+.cp-panel { border: 1px solid #388bff; border-radius: 8px; box-shadow: 0 0 0 2px #e9f2ff; overflow: hidden; background: #fff; }
+.cp-search { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid #ebecf0; color: #626f86; }
+.cp-search input { flex: 1; min-width: 0; border: none; outline: none; font: inherit; font-size: 14px; padding: 2px 0; color: #172b4d; }
+.ex-form .cp-search input { padding: 2px 0; border: none; }
+.cp-close { border: none; background: none; color: #626f86; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 4px; cursor: pointer; }
+.cp-close:hover { background: #f1f2f4; }
+.cp-list-box { max-height: 260px; overflow-y: auto; padding: 4px; }
+.cp-option { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: none; background: none; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+.cp-option.active { background: #f1f2f4; }
+.cp-option.chosen { background: #e9f2ff; }
+.cp-option.chosen.active { background: #cce0ff; }
+.cp-opt-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cp-tick { color: #0c66e4; flex-shrink: 0; }
+.cp-none { color: #626f86; font-size: 13px; gap: 6px; }
+.cp-empty { margin: 0; padding: 14px; text-align: center; font-size: 13px; color: #626f86; }

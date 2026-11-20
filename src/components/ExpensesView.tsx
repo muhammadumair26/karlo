@@ -19,7 +19,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   balances,
   budgetStatus,
@@ -58,6 +58,7 @@ import {
   type Recurring,
 } from '../lib/expenses';
 import type { BoardData, Me, Person } from '../lib/types';
+import { CardPicker } from './CardPicker';
 import { askConfirm, showAlert } from './dialog';
 import { Avatar, download, Modal } from './ui';
 
@@ -802,13 +803,6 @@ export function ExpenseForm({
   const settle = f.kind === 'settlement';
   const income = f.kind === 'income';
   const foreign = currency !== main;
-  const cards = useMemo(
-    () =>
-      data.listOrder
-        .filter((l) => !data.lists[l].archived)
-        .flatMap((l) => data.lists[l].cardIds.map((id) => data.cards[id]).filter((c) => c && !c.archived)),
-    [data],
-  );
   const cats = income ? [...new Set([...INCOME_CATEGORIES, ...categories.filter((c) => !CATEGORIES.includes(c))])] : categories.filter((c) => !INCOME_CATEGORIES.includes(c));
 
   // Fill in today's rate when picking another currency (editable: use your bank's rate if it differs).
@@ -1033,17 +1027,10 @@ export function ExpenseForm({
               </div>
             )}
             {repeat && <p className="muted ex-share-hint">Added automatically on the {repeat === 'weekly' ? 'same weekday' : 'same date'} {FREQ_LABEL[repeat].toLowerCase()}, starting {shortDate(f.spent_on)}{foreign ? ` at this rate (${rate || '?'})` : ''}. Pause or stop it any time under Recurring.</p>}
-            <label className="pop-field">
+            <div className="pop-field">
               Related card (optional)
-              <select className="field-select" value={f.card_id ?? ''} onChange={(e) => set({ card_id: e.target.value || null })}>
-                <option value="">— None —</option>
-                {cards.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <CardPicker data={data} value={f.card_id} onChange={(id) => set({ card_id: id })} />
+            </div>
           </>
         )}
         <label className="pop-field">
