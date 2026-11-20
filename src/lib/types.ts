@@ -117,6 +117,16 @@ export interface BoardData {
   labels: Label[];
   activity: Activity[];
   background: string | null; // image URL
+  dashboard: DashboardTile[] | null; // null = default tiles
+}
+
+export type DashboardMetric = 'list' | 'label' | 'member' | 'due' | 'priority' | 'status';
+export type DashboardChart = 'bar' | 'pie' | 'line';
+export interface DashboardTile {
+  id: string;
+  metric: DashboardMetric;
+  chart: DashboardChart;
+  days?: 7 | 14 | 30; // line charts: timeframe
 }
 
 export interface Workspace {

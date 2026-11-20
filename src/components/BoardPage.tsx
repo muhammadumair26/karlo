@@ -409,6 +409,8 @@ export function BoardPage({
       ) : view === 'dashboard' ? (
         <DashboardView
           data={data}
+          dispatch={dispatch}
+          editable={editable}
           filters={filters}
           meId={me.id}
           people={peopleMap}

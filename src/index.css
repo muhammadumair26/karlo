@@ -978,3 +978,58 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 .profile-cards li { padding: 5px 0; border-bottom: 1px solid #f1f2f4; }
 .profile-cards .link-btn { font-size: 14px; color: #172b4d; }
 .activity-all { margin-bottom: 8px; display: inline-block; }
+
+/* ======================= Dashboard tiles ======================= */
+.dash-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.dash-card-head h4 { margin: 0; }
+.dash-card-head .icon-btn { display: inline-flex; }
+.dash-card { position: relative; min-height: 220px; }
+.dash-add { min-height: 220px; border: 2px dashed rgba(255,255,255,.55); border-radius: 12px; background: rgba(255,255,255,.18); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.dash-add:hover { background: rgba(255,255,255,.3); border-color: #fff; }
+/* pie */
+.pie { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.pie-svg { width: 170px; height: 170px; flex-shrink: 0; }
+.pie-total { font-size: 30px; font-weight: 700; fill: #172b4d; }
+.pie-sub { font-size: 12px; fill: #626f86; }
+.pie-legend { list-style: none; padding: 0; margin: 0; flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.pie-legend li { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-radius: 4px; cursor: default; color: #44546f; }
+.pie-legend li.on { background: #f1f2f4; }
+.pie-legend.inline { flex-direction: row; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+.swatch-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.swatch-line { width: 14px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+.legend-label { flex: 1; color: #172b4d; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend-value { color: #44546f; font-variant-numeric: tabular-nums; }
+/* line */
+.line-chart { position: relative; }
+.line-svg { width: 100%; height: auto; display: block; }
+.line-svg .grid { stroke: #ebecf0; stroke-width: 1; }
+.line-svg .axis { font-size: 11px; fill: #626f86; }
+.line-svg .crosshair { stroke: #8590a2; stroke-width: 1; stroke-dasharray: 3 3; }
+.line-tip { position: absolute; top: 4px; transform: translateX(-50%); background: #172b4d; color: #fff; font-size: 12px; border-radius: 6px; padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; pointer-events: none; white-space: nowrap; z-index: 3; }
+.line-tip i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
+/* add-tile window */
+.modal.tile-modal { width: 640px; max-width: 100%; border-radius: 12px; overflow: hidden; }
+.tile-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.tile-head h3 { margin: 0; font-size: 22px; color: #172b4d; }
+.tile-head .icon-btn { font-size: 20px; opacity: .8; }
+.tile-step1 { padding: 20px 24px; }
+.tile-choices { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.tile-choice { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 8px 14px; border: 2px solid transparent; border-radius: 10px; background: #fff; cursor: pointer; font-size: 15px; color: #172b4d; }
+.tile-choice:hover { background: #f7f8f9; }
+.tile-choice.on { border-color: #388bff; box-shadow: 0 0 0 1px #388bff inset; }
+.tile-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.tile-step2 { display: grid; grid-template-columns: 110px 1fr; min-height: 420px; }
+.tile-rail { background: #f7f8f9; display: flex; flex-direction: column; justify-content: center; gap: 18px; padding: 12px; }
+.tile-rail-btn { border: 2px solid transparent; border-radius: 10px; background: none; padding: 8px 4px; cursor: pointer; display: flex; justify-content: center; }
+.tile-rail-btn.on { border-color: #388bff; background: #fff; }
+.tile-form { padding: 20px 24px; display: flex; flex-direction: column; }
+.tile-form fieldset { border: none; padding: 0; margin: 0 0 16px; }
+.tile-form legend { font-size: 13px; font-weight: 600; color: #44546f; margin-bottom: 8px; }
+.radio-row { display: flex; align-items: center; gap: 10px; padding: 7px 2px; font-size: 15px; color: #172b4d; cursor: pointer; }
+.radio-row input { width: 16px; height: 16px; accent-color: #0c66e4; }
+.tile-form .tile-foot { margin-top: auto; }
+@media (max-width: 600px) {
+  .tile-choices { grid-template-columns: 1fr; }
+  .tile-step2 { grid-template-columns: 1fr; }
+  .tile-rail { flex-direction: row; justify-content: center; }
+}

@@ -1,4 +1,4 @@
-import type { Activity, Attachment, BoardData, Card, Comment, Label, List } from './types';
+import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List } from './types';
 
 export const uid = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -18,6 +18,7 @@ export function emptyBoard(): BoardData {
     ],
     activity: [],
     background: null,
+    dashboard: null,
   };
 }
 
@@ -96,7 +97,7 @@ export function normalize(raw: unknown): BoardData {
   }
   const listOrder = (d.listOrder ?? Object.keys(lists)).filter((id) => lists[id]);
   for (const l of Object.values(lists)) l.cardIds = l.cardIds.filter((id) => cards[id]);
-  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null };
+  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null, dashboard: Array.isArray(d.dashboard) ? d.dashboard : null };
 }
 
 // ------------------------------------------------------------------ actions
@@ -123,6 +124,7 @@ export type BoardActionBody =
   | { type: 'ADD_ATTACHMENTS'; cardId: string; attachments: Attachment[]; autoCover?: boolean }
   | { type: 'DELETE_ATTACHMENT'; cardId: string; attachmentId: string }
   | { type: 'SET_BACKGROUND'; url: string | null }
+  | { type: 'SET_DASHBOARD'; tiles: DashboardTile[] }
   | { type: 'MAP_GUEST'; name: string; userId: string | null };
 
 export type BoardAction = BoardActionBody & { meta: ActionMeta };
@@ -277,6 +279,8 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
         activity: log(d, a, `deleted the attachment ${att.name || att.url} from “${c.title}”`, c.id),
       };
     }
+    case 'SET_DASHBOARD':
+      return { ...d, dashboard: a.tiles };
     case 'SET_BACKGROUND':
       return { ...d, background: a.url, activity: log(d, a, a.url ? 'changed the board background' : 'removed the board background') };
     case 'MAP_GUEST': {
