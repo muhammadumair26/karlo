@@ -106,7 +106,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 /// Holds Karlo's screen and keeps it clear of side cut-outs (e.g. the iPhone Duo's status-pill column),
-/// the way the phone's own apps do: a black strip for the clock and camera, and the app's corners rounded
+/// the way the phone's own apps do: a strip for the clock and camera in the phone's light/dark colour, and the app's corners rounded
 /// on the side next to it. Ordinary iPhones in portrait have no side insets, so nothing changes there.
 class KarloContainerViewController: UIViewController {
     private let karlo = KarloViewController()
@@ -114,7 +114,7 @@ class KarloContainerViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black // blends with the phone's frame and camera
+        view.backgroundColor = .systemBackground // follows the phone: white in light mode, black in dark mode
         addChild(karlo)
         view.addSubview(karlo.view)
         karlo.view.layer.cornerCurve = .continuous
@@ -138,9 +138,9 @@ class KarloContainerViewController: UIViewController {
     }
 
     private var hasSideStrip: Bool { (view.safeAreaInsets.left > 0) != (view.safeAreaInsets.right > 0) }
-    // With a side strip the clock sits on the black strip, so keep it white; otherwise the page decides.
+    // With a side strip the clock sits on the strip, so it follows the phone's light/dark mode; otherwise the page decides.
     override var childForStatusBarStyle: UIViewController? { hasSideStrip ? nil : karlo }
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .default }
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         setNeedsStatusBarAppearanceUpdate()
