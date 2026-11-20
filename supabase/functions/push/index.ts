@@ -54,12 +54,25 @@ async function vapidKeys(): Promise<{ public_key: string; private_key: string }>
 type ServiceAccount = { project_id: string; client_email: string; private_key: string };
 let fcmToken: { value: string; exp: number } | null = null;
 function serviceAccount(): ServiceAccount | null {
-  const raw = Deno.env.get('FCM_SERVICE_ACCOUNT');
+  let raw = Deno.env.get('FCM_SERVICE_ACCOUNT')?.trim();
   if (!raw) return null;
+  if (!raw.startsWith('{')) {
+    try {
+      raw = atob(raw).trim(); // pasted as base64
+    } catch {
+      /* not base64 */
+    }
+  }
   try {
     return JSON.parse(raw);
   } catch {
-    console.error('FCM_SERVICE_ACCOUNT is not valid JSON');
+    // Dashboards sometimes turn the key's "\n" escapes into real line breaks; read the three fields directly.
+    const field = (k: string) => raw!.match(new RegExp(`"${k}"\\s*:\\s*"([\\s\\S]*?)"\\s*[,}]`))?.[1];
+    const project_id = field('project_id');
+    const client_email = field('client_email');
+    const private_key = field('private_key')?.replace(/\\n/g, '\n');
+    if (project_id && client_email && private_key?.includes('PRIVATE KEY')) return { project_id, client_email, private_key };
+    console.error(`FCM_SERVICE_ACCOUNT could not be read (length ${raw.length}, starts with "${raw.slice(0, 1)}")`);
     return null;
   }
 }
