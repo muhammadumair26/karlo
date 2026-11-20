@@ -48,7 +48,13 @@ export function BoardSwitcher({
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    // The phone bottom bar opens the switcher with this event.
+    const openIt = () => setOpen(true);
+    window.addEventListener('karlo:switch-boards', openIt);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('karlo:switch-boards', openIt);
+    };
   }, []);
   useEffect(() => {
     if (open) {

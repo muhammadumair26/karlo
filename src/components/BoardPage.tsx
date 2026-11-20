@@ -11,6 +11,7 @@ import {
   History,
   Image,
   Kanban,
+  LayoutGrid,
   Link2,
   LogOut,
   MoreHorizontal,
@@ -258,9 +259,9 @@ export function BoardPage({
         <button className={`icon-btn light star ${starred ? 'on' : ''}`} title={starred ? 'Unstar board' : 'Star board'} onClick={onToggleStar}>
           <Star size={17} fill={starred ? 'currentColor' : 'none'} />
         </button>
-        {meta.role !== 'member' && <span className={`role-pill role-${meta.role} on-dark`}>{ROLE_INFO[meta.role].label}</span>}
+        {meta.role !== 'member' && <span className={`role-pill role-${meta.role} on-dark hide-phone`}>{ROLE_INFO[meta.role].label}</span>}
 
-        <span className="menu-anchor">
+        <span className="menu-anchor hide-phone">
           {(() => {
             const cur = VIEWS.find((v) => v.id === view) ?? VIEWS[0];
             return (
@@ -279,13 +280,13 @@ export function BoardPage({
           </Menu>
         </span>
 
-        <button className={`btn translucent ${hasFilters(filters) ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)}>
+        <button className={`btn translucent hide-phone ${hasFilters(filters) ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)}>
           <Filter size={15} /> Filter{hasFilters(filters) ? ' •' : ''}
         </button>
 
         <span className="header-spacer" />
         <span className={`sync-status sync-${status}`}>{STATUS_TEXT[status]}</span>
-        <span className="header-people">
+        <span className="header-people hide-phone">
           {people.slice(0, 5).map((p) => (
             <button key={p.user_id} className="header-avatar" title={p.name} onClick={(e) => openMember(p, e.currentTarget)}>
               <Avatar id={p.user_id} name={p.name} src={p.avatar_url} size={30} />
@@ -298,7 +299,7 @@ export function BoardPage({
           )}
         </span>
         {switcher}
-        <button className="btn translucent" onClick={() => setPanel('share')}>
+        <button className="btn translucent hide-phone" onClick={() => setPanel('share')}>
           <UserPlus size={16} /> Share
         </button>
         <span className="menu-anchor">
@@ -372,6 +373,43 @@ export function BoardPage({
           </Menu>
         </span>
       </div>
+
+      {/* Phone only: Trello-style bottom bar (hidden on wider screens via CSS). */}
+      <nav className="phone-bar" aria-label="Board actions">
+        <span className="menu-anchor">
+          {(() => {
+            const cur = VIEWS.find((v) => v.id === view) ?? VIEWS[0];
+            return (
+              <button className={viewsOpen ? 'on' : ''} onClick={() => setViewsOpen(!viewsOpen)}>
+                <cur.Icon size={20} />
+                <span>
+                  {cur.label} <ChevronDown size={12} />
+                </span>
+              </button>
+            );
+          })()}
+          <Menu open={viewsOpen} onClose={() => setViewsOpen(false)} align="up">
+            <div className="menu-title">Views</div>
+            {VIEWS.map((v) => (
+              <button key={v.id} className={view === v.id ? 'menu-on' : ''} onClick={() => (setViewsOpen(false), setViewSaved(v.id))}>
+                <v.Icon size={17} /> {v.label}
+              </button>
+            ))}
+          </Menu>
+        </span>
+        <button className={showFilters || hasFilters(filters) ? 'on' : ''} onClick={() => setShowFilters(!showFilters)}>
+          <Filter size={20} />
+          <span>Filter{hasFilters(filters) ? ' •' : ''}</span>
+        </button>
+        <button onClick={() => setPanel('share')}>
+          <UserPlus size={20} />
+          <span>Share</span>
+        </button>
+        <button onClick={() => window.dispatchEvent(new CustomEvent('karlo:switch-boards'))}>
+          <LayoutGrid size={20} />
+          <span>Boards</span>
+        </button>
+      </nav>
 
       {showFilters && data && (
         <div className="filter-bar">

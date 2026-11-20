@@ -126,7 +126,7 @@ export function RoleSelect({
   );
 }
 
-export function Menu({ open, onClose, children, align = 'right' }: { open: boolean; onClose: () => void; children: ReactNode; align?: 'left' | 'right' }) {
+export function Menu({ open, onClose, children, align = 'right' }: { open: boolean; onClose: () => void; children: ReactNode; align?: 'left' | 'right' | 'up' }) {
   useEffect(() => {
     if (!open) return;
     const close = () => onClose();

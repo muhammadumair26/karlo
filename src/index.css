@@ -1051,3 +1051,54 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 .act-preview { display: block; margin-top: 8px; border: none; padding: 0; background: none; cursor: zoom-in; max-width: 100%; }
 .act-preview img { display: block; max-width: 100%; max-height: 360px; border-radius: 6px; box-shadow: 0 1px 3px rgba(9,30,66,.3); }
 .act-empty { padding: 12px 0; }
+
+/* ======================= Phone layout (Trello-like) ======================= */
+.phone-bar { display: none; }
+.menu.up { top: auto; bottom: calc(100% + 8px); left: 0; }
+@media (max-width: 720px) {
+  .hide-phone { display: none !important; }
+  .brand-text { display: none; }
+  .topbar { gap: 8px; padding: 6px 10px; }
+  .topbar .header-spacer { display: none; }
+  /* search collapses to an icon; tap to expand across the bar */
+  .searchbar { flex: 1; max-width: none; margin: 0; justify-content: flex-end; }
+  .searchbar input { width: 40px; padding: 7px 0 7px 34px; border-color: transparent; background: transparent; color: transparent; transition: width .15s; }
+  .searchbar input::placeholder { color: transparent; }
+  .searchbar .search-icon { left: auto; right: 12px; }
+  .searchbar.open { position: absolute; left: 8px; right: 8px; top: 6px; z-index: 45; }
+  .searchbar.open input { width: 100%; color: #172b4d; background: #fff; padding-left: 36px; }
+  .searchbar.open input::placeholder { color: #626f86; }
+  .searchbar.open .search-icon { left: 11px; right: auto; }
+  /* one-row board header */
+  .board-header { flex-wrap: nowrap; padding: 10px 10px 8px; gap: 6px; }
+  .board-title { font-size: 18px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto; }
+  .board-header .sync-status { display: none; }
+  .board-header .switch-btn { display: none; }
+  .board-header .header-spacer { flex: 1; }
+  /* bottom bar */
+  .phone-bar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 25;
+    background: #fff; border-top: 1px solid #dfe1e6; box-shadow: 0 -2px 10px rgba(9,30,66,.12);
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom)); justify-content: space-around;
+  }
+  .phone-bar > button, .phone-bar > .menu-anchor > button {
+    border: none; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font-size: 11px; color: #44546f; padding: 6px 12px; border-radius: 10px; min-width: 64px;
+  }
+  .phone-bar > .menu-anchor > button span { display: inline-flex; align-items: center; gap: 2px; }
+  .phone-bar button.on { background: #e9f2ff; color: #0c66e4; }
+  .phone-bar .menu { min-width: 200px; }
+  /* leave room for the bar */
+  .board-canvas, .tv-wrap, .calendar, .dashboard, .timeline, .mapview { margin-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .board-canvas { padding-left: 10px; padding-right: 10px; gap: 10px; }
+  .list { width: 82vw; max-width: 300px; }
+  .filter-bar { padding: 0 10px 8px; }
+  .filter-bar .text-input { width: 100%; }
+}
+@media (max-width: 720px) {
+  /* Expand on focus directly (doesn't depend on JS state). */
+  .searchbar:focus-within { position: absolute; left: 8px; right: 8px; top: 6px; z-index: 45; }
+  .searchbar:focus-within input { width: 100%; color: #172b4d; background: #fff; padding-left: 36px; outline: 2px solid #388bff; }
+  .searchbar:focus-within input::placeholder { color: #626f86; }
+  .searchbar:focus-within .search-icon { left: 11px; right: auto; color: #626f86; }
+}

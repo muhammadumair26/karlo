@@ -288,7 +288,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
         </button>
         <span className="brand">
           <img className="brand-logo" src={`${import.meta.env.BASE_URL}karlo-icon.png`} alt="" />
-          Karlo
+          <span className="brand-text">Karlo</span>
         </span>
         <SearchBar boards={boards} onOpen={openFromAnywhere} />
         <NotificationsBell userId={userId} onOpenCard={openFromAnywhere} />
