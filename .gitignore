@@ -26,3 +26,6 @@ dist-ssr
 # Native build outputs
 build-ios/
 release/
+
+# Firebase app config: kept out of the public repo
+android/app/google-services.json
