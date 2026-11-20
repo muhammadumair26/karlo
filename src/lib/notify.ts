@@ -63,6 +63,9 @@ export function notificationsFor(before: BoardData, a: BoardActionBody, me: Me, 
   if (a.type === 'ADD_COMMENT') {
     send(mentionedIds(a.comment.text, people), 'mention', `Mentioned you: “${snippet(a.comment.text)}”`);
     send(members, 'comment', `Commented: “${snippet(a.comment.text)}”`);
+  } else if (a.type === 'ADD_ATTACHMENTS') {
+    const names = a.attachments.map((x) => x.name || x.url);
+    send(members, 'attachment', names.length === 1 ? `Attached ${names[0]}` : `Attached ${names.length} files: ${snippet(names.join(', '))}`);
   } else if (a.type === 'MOVE_CARD') {
     const toTitle = before.lists[a.toListId]?.title;
     if (a.toListId !== listId && toTitle) send(members, 'moved', `Moved this card from ${base.list_title} to ${toTitle}`);

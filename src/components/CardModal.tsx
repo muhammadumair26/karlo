@@ -5,8 +5,15 @@ import {
   ChevronDown,
   Clock,
   Flag,
+  Download,
+  ExternalLink,
+  ImageIcon,
+  Link2,
+  Loader2,
   MessageSquare,
   MoreHorizontal,
+  SquareKanban,
+  Upload,
   Paperclip,
   Plus,
   Tag,
@@ -18,9 +25,11 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import type { BoardActionBody } from '../lib/board';
 import { cardListId, uid } from '../lib/board';
 import { dueStatus, formatDate } from '../lib/filters';
-import type { BoardData, Card, Me, Person, Priority } from '../lib/types';
+import type { Attachment, BoardData, Card, Me, Person, Priority } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
+import { extOf, formatBytes, isImage, fileUrl, MAX_FILE_BYTES, pathsOf, uploadAttachment, useSignedUrls } from '../lib/files';
 import { handleOf } from '../lib/notify';
+import { cardLink, parseCardLink, recentCards, rememberCard } from '../lib/recent';
 import { LabelsEditor } from './LabelsEditor';
 import { MentionInput } from './MentionInput';
 import { Avatar, Menu, Modal, timeAgo } from './ui';
@@ -64,6 +73,9 @@ function Popover({ title, onClose, children }: { title: string; onClose: () => v
 }
 
 export function CardModal({
+  boardId,
+  boardTitle,
+  onOpenCardLink,
   card,
   data,
   people,
@@ -72,6 +84,10 @@ export function CardModal({
   dispatch,
   onClose,
 }: {
+  boardId: string;
+  boardTitle: string;
+  /** Open another Karlo card (from a card link attachment). */
+  onOpenCardLink?: (boardId: string, cardId: string) => void;
   card: Card;
   data: BoardData;
   people: Person[];
@@ -87,6 +103,13 @@ export function CardModal({
   const [menu, setMenu] = useState(false);
   const [newItem, setNewItem] = useState('');
   const [link, setLink] = useState({ name: '', url: '' });
+  const [uploads, setUploads] = useState<{ id: string; name: string; error?: string }[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [attMenu, setAttMenu] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
+  const ro = !editable;
   const [comment, setComment] = useState('');
   const [commentFocus, setCommentFocus] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -98,7 +121,71 @@ export function CardModal({
     if (!editingDesc) setDesc(card.description);
   }, [card.description, editingDesc]);
 
-  const ro = !editable;
+  useEffect(() => {
+    rememberCard({ boardId, cardId: card.id, title: card.title, boardTitle });
+  }, [boardId, card.id, card.title, boardTitle]);
+
+  // ---- file uploads (button, drag & drop, paste)
+  const uploadFiles = async (files: File[]) => {
+    if (ro || files.length === 0) return;
+    const jobs = files.map((f) => ({ id: uid(), file: f }));
+    setUploads((u) => [...u, ...jobs.map((j) => ({ id: j.id, name: j.file.name || 'Pasted image', error: j.file.size > MAX_FILE_BYTES ? 'Larger than 25 MB' : undefined }))]);
+    setPop(null);
+    const results = await Promise.allSettled(
+      jobs.filter((j) => j.file.size <= MAX_FILE_BYTES).map(async (j) => {
+        const att = await uploadAttachment(boardId, card.id, j.file);
+        return { ...att, addedBy: me.id, jobId: j.id };
+      }),
+    );
+    const ok: Attachment[] = [];
+    const failed = new Map<string, string>();
+    results.forEach((r) => {
+      if (r.status === 'fulfilled') {
+        const { jobId, ...att } = r.value;
+        ok.push(att);
+        setUploads((u) => u.filter((x) => x.id !== jobId));
+      } else failed.set(String(r.reason?.message ?? r.reason), '');
+    });
+    if (ok.length) dispatch({ type: 'ADD_ATTACHMENTS', cardId: card.id, attachments: ok, autoCover: true });
+    if (failed.size) {
+      setUploads((u) => u.map((x) => (x.error ? x : { ...x, error: [...failed.keys()].find((m) => m.startsWith(x.name)) ?? 'Upload failed' })));
+    }
+    // Clear errors after a while.
+    setTimeout(() => setUploads((u) => u.filter((x) => !x.error)), 8000);
+  };
+
+  useEffect(() => {
+    if (ro) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const files = [...(e.clipboardData?.files ?? [])];
+      if (files.length === 0) return;
+      e.preventDefault();
+      void uploadFiles(files.map((f, i) => (f.name && f.name !== 'image.png' ? f : new File([f], `Pasted image ${new Date().toLocaleString().replace(/[/:]/g, '-')}${i ? ' ' + i : ''}.png`, { type: f.type }))));
+    };
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ro, card.id]);
+
+  const filePaths = pathsOf(card.attachments);
+  const urls = useSignedUrls(filePaths);
+  const open = async (a: Attachment, download = false) => {
+    if (!a.path) {
+      const internal = parseCardLink(a.url);
+      if (internal && onOpenCardLink) return onOpenCardLink(internal.boardId, internal.cardId);
+      return window.open(a.url, '_blank', 'noopener');
+    }
+    const u = await fileUrl(a.path, download ? a.name : undefined);
+    if (u) {
+      if (download) window.location.href = u;
+      else window.open(u, '_blank', 'noopener');
+    }
+  };
+  const removeAttachment = (a: Attachment) => {
+    if (!confirm(`Delete ${a.name || 'this attachment'}? This cannot be undone.`)) return;
+    dispatch({ type: 'DELETE_ATTACHMENT', cardId: card.id, attachmentId: a.id });
+  };
+
   const update = (patch: Partial<Card>, note?: string) => dispatch({ type: 'UPDATE_CARD', cardId: card.id, patch, note });
   const listId = cardListId(data, card.id);
   const peopleById = useMemo(() => new Map(people.map((p) => [p.user_id, p])), [people]);
@@ -184,18 +271,47 @@ export function CardModal({
     };
   });
   if (showDetails) {
+    const quoted = `“${card.title}”`;
     for (const a of data.activity.filter((x) => x.cardId === card.id && !x.text.startsWith('commented'))) {
+      const att = a.attachmentId ? card.attachments.find((x) => x.id === a.attachmentId) : undefined;
+      const preview = att?.path && isImage(att) ? urls.get(att.path) : undefined;
+      // "attached X to “Card”" reads as "attached X to this card" inside the card, like Trello.
+      const text = a.text.split(quoted).join('this card');
+      const actor = people.find((p) => p.name === a.by);
       feed.push({
         at: a.at,
         key: a.id,
         node: (
           <div className="feed-item activity-item">
-            <Avatar id={a.by} name={a.by} size={32} />
+            <Avatar id={actor?.user_id ?? a.by} name={a.by} src={actor?.avatar_url} size={32} />
             <div className="feed-main">
               <div>
-                <strong>{a.by}</strong> {a.text}
+                <strong>{a.by}</strong>{' '}
+                {att ? (
+                  <>
+                    attached{' '}
+                    <button className="link-btn inline" onClick={() => void open(att)}>
+                      {att.name || att.url}
+                    </button>{' '}
+                    to this card
+                  </>
+                ) : (
+                  text
+                )}
               </div>
               <span className="feed-time">{timeAgo(a.at)}</span>
+              {preview && (
+                <button className="feed-preview" onClick={() => setLightbox(preview)} title="Preview">
+                  <img src={preview} alt={att?.name ?? ''} loading="lazy" />
+                </button>
+              )}
+              {att && editable && (
+                <div className="feed-actions">
+                  <button className="link-btn" onClick={() => reply(a.by, actor?.user_id ?? '')}>
+                    Reply
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ),
@@ -328,33 +444,94 @@ export function CardModal({
             ))}
           </Popover>
         );
-      case 'attachment':
+      case 'attachment': {
+        const q = link.url.trim().toLowerCase();
+        const looksLikeUrl = /^(https?:\/\/|www\.)|\.[a-z]{2,}(\/|$)/i.test(link.url.trim());
+        const recent = recentCards().filter((r) => r.cardId !== card.id);
+        const boardMatches = q && !looksLikeUrl
+          ? Object.values(data.cards)
+              .filter((c) => c.id !== card.id && c.title.toLowerCase().includes(q))
+              .slice(0, 6)
+              .map((c) => ({ boardId, cardId: c.id, title: c.title, boardTitle, at: 0 }))
+          : [];
+        const suggestions = q && !looksLikeUrl ? boardMatches : recent.slice(0, 5);
+        const insertLink = () => {
+          let url = link.url.trim();
+          if (!url) return;
+          if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+          dispatch({ type: 'ADD_ATTACHMENTS', cardId: card.id, attachments: [{ id: uid(), name: link.name.trim(), url, addedAt: Date.now(), addedBy: me.id }] });
+          setLink({ name: '', url: '' });
+          setPop(null);
+        };
         return (
-          <Popover title="Attach a link" onClose={() => setPop(null)}>
-            <form
-              className="pop-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                let url = link.url.trim();
-                if (!url) return;
-                if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-                update({ attachments: [...card.attachments, { id: uid(), name: link.name.trim(), url, addedAt: Date.now() }] }, 'attached a link to {card}');
-                setLink({ name: '', url: '' });
-                setPop(null);
-              }}
-            >
+          <Popover title="Attach" onClose={() => setPop(null)}>
+            <div className="attach-pop">
+              <strong className="attach-h">Attach a file from your computer</strong>
+              <p className="muted center">You can also drag and drop files to upload them.</p>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => {
+                  void uploadFiles([...(e.target.files ?? [])]);
+                  e.target.value = '';
+                }}
+              />
+              <button className="btn choose-file" onClick={() => fileInput.current?.click()}>
+                <Upload size={15} /> Choose a file
+              </button>
+              <hr />
               <label className="pop-field">
-                Link
-                <input autoFocus placeholder="Paste a link (Drive, Figma, docs…)" value={link.url} onChange={(e) => setLink({ ...link, url: e.target.value })} />
+                <span>
+                  Search or paste a link <span className="req">*</span>
+                </span>
+                <input
+                  autoFocus
+                  placeholder="Find recent links or paste a new link"
+                  value={link.url}
+                  onChange={(e) => setLink({ ...link, url: e.target.value })}
+                  onKeyDown={(e) => e.key === 'Enter' && insertLink()}
+                />
               </label>
               <label className="pop-field">
                 Display text (optional)
-                <input value={link.name} onChange={(e) => setLink({ ...link, name: e.target.value })} />
+                <input placeholder="Text to display" value={link.name} onChange={(e) => setLink({ ...link, name: e.target.value })} />
+                <span className="muted small-hint">Give this link a title or description</span>
               </label>
-              <button className="btn primary full">Insert</button>
-            </form>
+              {suggestions.length > 0 && (
+                <div className="recent-links">
+                  <strong className="attach-h left">{q ? 'Cards on this board' : 'Recently viewed'}</strong>
+                  {suggestions.map((r) => (
+                    <button
+                      key={r.cardId}
+                      className="recent-link"
+                      onClick={() => setLink({ url: cardLink(r.boardId, r.cardId), name: r.title })}
+                    >
+                      <SquareKanban size={16} />
+                      <span>
+                        <span className="recent-title">{r.title}</span>
+                        <span className="muted">
+                          {r.boardTitle}
+                          {r.at ? ` · Viewed ${timeAgo(r.at)}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="pop-footer">
+                <button className="btn ghost" onClick={() => setPop(null)}>
+                  Cancel
+                </button>
+                <button className="btn primary" disabled={!link.url.trim()} onClick={insertLink}>
+                  Insert
+                </button>
+              </div>
+            </div>
           </Popover>
         );
+      }
       default:
         return null;
     }
@@ -364,7 +541,43 @@ export function CardModal({
   const showDates = !!(card.start || card.due);
 
   return (
-    <Modal onClose={onClose} bare className="card-window">
+    <Modal onClose={lightbox ? () => setLightbox(null) : onClose} bare className={`card-window ${dragging ? 'dragging-files' : ''}`}>
+      <div
+        className="cw-drop"
+        onDragEnter={(e) => {
+          if (ro || !e.dataTransfer.types.includes('Files')) return;
+          dragDepth.current++;
+          setDragging(true);
+        }}
+        onDragOver={(e) => {
+          if (!ro && e.dataTransfer.types.includes('Files')) e.preventDefault();
+        }}
+        onDragLeave={() => {
+          dragDepth.current = Math.max(0, dragDepth.current - 1);
+          if (dragDepth.current === 0) setDragging(false);
+        }}
+        onDrop={(e) => {
+          if (ro || !e.dataTransfer.files.length) return;
+          e.preventDefault();
+          dragDepth.current = 0;
+          setDragging(false);
+          void uploadFiles([...e.dataTransfer.files]);
+        }}
+      >
+      {dragging && (
+        <div className="drop-overlay">
+          <Upload size={28} />
+          <span>Drop files to upload</span>
+        </div>
+      )}
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(null)}>
+          <img src={lightbox} alt="" />
+          <button className="lightbox-close" aria-label="Close preview">
+            <X size={22} />
+          </button>
+        </div>
+      )}
       {/* ---------- top strip */}
       <div className="cw-top">
         {editable ? (
@@ -609,7 +822,7 @@ export function CardModal({
           </section>
 
           {/* attachments */}
-          {card.attachments.length > 0 && (
+          {(card.attachments.length > 0 || uploads.length > 0) && (
             <section className="cw-section">
               <div className="cw-section-head">
                 <Paperclip size={20} />
@@ -620,26 +833,93 @@ export function CardModal({
                   </button>
                 )}
               </div>
-              <ul className="cw-indent attach-list">
-                {card.attachments.map((a) => (
-                  <li key={a.id}>
-                    <span className="attach-thumb">
-                      <Paperclip size={16} />
-                    </span>
-                    <span className="attach-info">
-                      <a href={a.url} target="_blank" rel="noreferrer noopener">
-                        {a.name || a.url}
-                      </a>
-                      <span className="muted">Added {timeAgo(a.addedAt)}</span>
-                    </span>
-                    {editable && (
-                      <button className="icon-btn" title="Remove" onClick={() => update({ attachments: card.attachments.filter((x) => x.id !== a.id) })}>
-                        <Trash2 size={15} />
+              {(() => {
+                const files = card.attachments.filter((a) => a.path);
+                const links = card.attachments.filter((a) => !a.path);
+                const row = (a: Attachment) => {
+                  const img = a.path && isImage(a) ? urls.get(a.path) : undefined;
+                  const internal = !a.path ? parseCardLink(a.url) : null;
+                  return (
+                    <li key={a.id}>
+                      <button
+                        className={`attach-thumb ${img ? 'img' : ''}`}
+                        style={img ? { backgroundImage: `url("${img}")` } : undefined}
+                        onClick={() => (img ? setLightbox(img) : void open(a))}
+                        title={img ? 'Preview' : 'Open'}
+                      >
+                        {!img && (a.path ? <span className="ext">{extOf(a.name)}</span> : internal ? <SquareKanban size={18} /> : <Link2 size={18} />)}
                       </button>
+                      <span className="attach-info">
+                        <button className="attach-name" onClick={() => void open(a)}>
+                          {a.name || a.url}
+                        </button>
+                        <span className="muted">
+                          Added {timeAgo(a.addedAt)}
+                          {a.size ? ` · ${formatBytes(a.size)}` : ''}
+                          {card.cover === a.id && ' · Cover'}
+                        </span>
+                      </span>
+                      <button className="icon-btn" title="Open" onClick={() => void open(a)}>
+                        <ExternalLink size={16} />
+                      </button>
+                      <span className="menu-anchor">
+                        <button className="icon-btn boxed" title="More" onClick={() => setAttMenu(attMenu === a.id ? null : a.id)}>
+                          <MoreHorizontal size={16} />
+                        </button>
+                        <Menu open={attMenu === a.id} onClose={() => setAttMenu(null)}>
+                          {a.path && (
+                            <button onClick={() => (setAttMenu(null), void open(a, true))}>
+                              <Download size={16} /> Download
+                            </button>
+                          )}
+                          {editable && a.path && isImage(a) && (
+                            <button
+                              onClick={() => {
+                                setAttMenu(null);
+                                update({ cover: card.cover === a.id ? null : a.id });
+                              }}
+                            >
+                              <ImageIcon size={16} /> {card.cover === a.id ? 'Remove cover' : 'Make cover'}
+                            </button>
+                          )}
+                          {editable && (
+                            <button className="danger-text" onClick={() => (setAttMenu(null), removeAttachment(a))}>
+                              <Trash2 size={16} /> Delete
+                            </button>
+                          )}
+                        </Menu>
+                      </span>
+                    </li>
+                  );
+                };
+                return (
+                  <div className="cw-indent">
+                    {(files.length > 0 || uploads.length > 0) && (
+                      <>
+                        <h5 className="attach-group">Files</h5>
+                        <ul className="attach-list">
+                          {files.map(row)}
+                          {uploads.map((u) => (
+                            <li key={u.id} className={u.error ? 'upload-error' : 'uploading'}>
+                              <span className="attach-thumb">{u.error ? '!' : <Loader2 size={18} className="spin" />}</span>
+                              <span className="attach-info">
+                                <span className="attach-name static">{u.name}</span>
+                                <span className={u.error ? 'error-text' : 'muted'}>{u.error ?? 'Uploading…'}</span>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
                     )}
-                  </li>
-                ))}
-              </ul>
+                    {links.length > 0 && (
+                      <>
+                        <h5 className="attach-group">Links</h5>
+                        <ul className="attach-list">{links.map(row)}</ul>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
             </section>
           )}
 
@@ -770,6 +1050,7 @@ export function CardModal({
             {feed.length === 0 && <p className="muted">No comments yet.</p>}
           </div>
         </aside>
+      </div>
       </div>
     </Modal>
   );

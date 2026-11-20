@@ -5,6 +5,7 @@ import { LABEL_COLORS, PRIORITIES } from '../lib/types';
 import { Avatar } from './ui';
 
 export function CardItem({
+  coverUrl,
   card,
   labels,
   people,
@@ -16,6 +17,7 @@ export function CardItem({
   onDragEnd,
   onDragOver,
 }: {
+  coverUrl?: string;
   card: Card;
   labels: Map<string, Label>;
   people: Map<string, Person>;
@@ -51,6 +53,9 @@ export function CardItem({
       tabIndex={0}
       role="button"
     >
+      {card.cover && (
+        <div className="card-cover" style={coverUrl ? { backgroundImage: `url("${coverUrl}")` } : undefined} />
+      )}
       {cardLabels.length > 0 && (
         <div className="card-labels">
           {cardLabels.map((l) => (

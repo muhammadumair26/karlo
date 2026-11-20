@@ -5,6 +5,7 @@ import { uid } from '../lib/board';
 import type { Filters } from '../lib/filters';
 import { hasFilters, matches } from '../lib/filters';
 import type { BoardData, Card, Label, Person } from '../lib/types';
+import { useSignedUrls } from '../lib/files';
 import { CardItem } from './CardItem';
 import { AddForm, EditableText } from './Editable';
 import { Menu } from './ui';
@@ -58,6 +59,13 @@ export function KanbanView({
   const labels = new Map<string, Label>(data.labels.map((l) => [l.id, l]));
   const filtering = hasFilters(filters);
   const lists = data.listOrder.map((id) => data.lists[id]).filter((l) => l && !l.archived);
+  // Cover images (private files) need short-lived links.
+  const coverPath = (c: Card) => (c.cover ? c.attachments.find((x) => x.id === c.cover)?.path : undefined);
+  const coverPaths = Object.values(data.cards)
+    .map(coverPath)
+    .filter((p): p is string => !!p)
+    .sort();
+  const coverUrls = useSignedUrls(coverPaths);
 
   const endDrag = () => {
     setDrag(null);
@@ -194,6 +202,7 @@ export function KanbanView({
                     {target === realIndex && <div className="card-placeholder" />}
                     <CardItem
                       card={card}
+                      coverUrl={coverPath(card) ? coverUrls.get(coverPath(card)!) : undefined}
                       labels={labels}
                       people={people}
                       draggable={editable}

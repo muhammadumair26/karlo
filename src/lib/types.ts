@@ -57,8 +57,18 @@ export interface Comment {
 export interface Attachment {
   id: string;
   name: string;
-  url: string;
+  url: string; // for links; empty for uploaded files
+  path?: string; // storage path for uploaded files
+  size?: number;
+  mime?: string;
   addedAt: number;
+  addedBy?: string;
+}
+
+export interface CardLocation {
+  name: string;
+  lat: number;
+  lng: number;
 }
 
 export interface Card {
@@ -76,6 +86,8 @@ export interface Card {
   checklist: ChecklistItem[];
   comments: Comment[];
   attachments: Attachment[];
+  location: CardLocation | null;
+  cover: string | null; // attachment id shown on the card face
   archived: boolean;
   createdAt: number;
   createdBy: string;
@@ -94,6 +106,7 @@ export interface Activity {
   by: string; // display name
   text: string;
   cardId?: string;
+  attachmentId?: string;
 }
 
 /** Everything inside one board; stored as JSON in boards.data. */

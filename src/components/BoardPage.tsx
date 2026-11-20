@@ -22,6 +22,7 @@ import type { Filters } from '../lib/filters';
 import { hasFilters, NO_FILTERS } from '../lib/filters';
 import type { BoardActionBody } from '../lib/board';
 import { boardToCSV, karloExport } from '../lib/importers';
+import { deleteFiles, pathsOf } from '../lib/files';
 import { notificationsFor, sendNotifications } from '../lib/notify';
 import type { BoardMeta, Me, Person } from '../lib/types';
 import { BACKGROUND_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
@@ -82,7 +83,17 @@ export function BoardPage({
     (b: BoardActionBody) => {
       const before = dataRef.current;
       applyAction(b);
-      if (before) void sendNotifications(notificationsFor(before, b, me, peopleRef.current, meta.id));
+      if (!before) return;
+      void sendNotifications(notificationsFor(before, b, me, peopleRef.current, meta.id));
+      // Free storage for uploaded files that are no longer referenced.
+      if (b.type === 'DELETE_ATTACHMENT') {
+        void deleteFiles(pathsOf(before.cards[b.cardId]?.attachments.filter((x) => x.id === b.attachmentId) ?? []));
+      } else if (b.type === 'DELETE_CARD') {
+        void deleteFiles(pathsOf(before.cards[b.cardId]?.attachments ?? []));
+      } else if (b.type === 'DELETE_LIST') {
+        const ids = before.lists[b.listId]?.cardIds ?? [];
+        void deleteFiles(ids.flatMap((id) => pathsOf(before.cards[id]?.attachments ?? [])));
+      }
     },
     [applyAction, me, meta.id],
   );
@@ -336,6 +347,12 @@ export function BoardPage({
       {openCard && data && (
         <CardModal
           key={openCard.id}
+          boardId={meta.id}
+          boardTitle={meta.title}
+          onOpenCardLink={(b, c) => {
+            if (b === meta.id) setOpenCardId(c);
+            else window.dispatchEvent(new CustomEvent('karlo:open', { detail: { boardId: b, cardId: c } }));
+          }}
           card={openCard}
           data={data}
           people={people}

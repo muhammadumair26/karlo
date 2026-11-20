@@ -193,6 +193,25 @@ function Home({ userId, email }: { userId: string; email: string }) {
     },
     [select],
   );
+
+  // Card links (attachments) and shared URLs like /?board=…&card=… open the card.
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const { boardId, cardId } = (e as CustomEvent<{ boardId: string; cardId: string }>).detail;
+      openFromAnywhere(boardId, cardId);
+    };
+    window.addEventListener('karlo:open', onOpen);
+    return () => window.removeEventListener('karlo:open', onOpen);
+  }, [openFromAnywhere]);
+  useEffect(() => {
+    if (!ready) return;
+    const q = new URLSearchParams(window.location.search);
+    const b = q.get('board');
+    if (!b) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    if (boardsRef.current.some((x) => x.id === b)) openFromAnywhere(b, q.get('card'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
   const wsForModal = workspaces.find((w) => w.id === wsModal) ?? null;
 
   const newBoard = async (workspaceId: string, title: string) => {

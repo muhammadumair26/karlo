@@ -1,4 +1,4 @@
-import type { Activity, BoardData, Card, Comment, Label, List } from './types';
+import type { Activity, Attachment, BoardData, Card, Comment, Label, List } from './types';
 
 export const uid = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -47,6 +47,8 @@ export function newCard(id: string, title: string, by: string, at: number, extra
     checklist: [],
     comments: [],
     attachments: [],
+    location: null,
+    cover: null,
     archived: false,
     createdAt: at,
     createdBy: by,
@@ -82,6 +84,8 @@ export function normalize(raw: unknown): BoardData {
       checklist: c.checklist ?? [],
       comments: c.comments ?? [],
       attachments: c.attachments ?? [],
+      location: c.location && typeof c.location.lat === 'number' ? c.location : null,
+      cover: c.cover && (c.attachments ?? []).some((x) => x.id === c.cover) ? c.cover : null,
       priority: c.priority ?? 'none',
       description,
       archived: !!c.archived,
@@ -116,6 +120,8 @@ export type BoardActionBody =
   | { type: 'ADD_COMMENT'; cardId: string; comment: Comment }
   | { type: 'DELETE_COMMENT'; cardId: string; commentId: string }
   | { type: 'SET_LABELS'; labels: Label[] }
+  | { type: 'ADD_ATTACHMENTS'; cardId: string; attachments: Attachment[]; autoCover?: boolean }
+  | { type: 'DELETE_ATTACHMENT'; cardId: string; attachmentId: string }
   | { type: 'SET_BACKGROUND'; url: string | null }
   | { type: 'MAP_GUEST'; name: string; userId: string | null };
 
@@ -123,8 +129,8 @@ export type BoardAction = BoardActionBody & { meta: ActionMeta };
 
 const MAX_ACTIVITY = 300;
 
-function log(d: BoardData, a: BoardAction, text: string, cardId?: string): Activity[] {
-  const entry: Activity = { id: a.meta.id, at: a.meta.at, by: a.meta.by.name, text, cardId };
+function log(d: BoardData, a: BoardAction, text: string, cardId?: string, attachmentId?: string): Activity[] {
+  const entry: Activity = { id: a.meta.id + (attachmentId ? ':' + attachmentId : ''), at: a.meta.at, by: a.meta.by.name, text, cardId, attachmentId };
   return [entry, ...d.activity].slice(0, MAX_ACTIVITY);
 }
 
@@ -242,6 +248,34 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
       const c = d.cards[a.cardId];
       if (!c) return d;
       return { ...d, cards: { ...d.cards, [c.id]: { ...c, comments: c.comments.filter((x) => x.id !== a.commentId) } } };
+    }
+    case 'ADD_ATTACHMENTS': {
+      const c = d.cards[a.cardId];
+      if (!c) return d;
+      const fresh = a.attachments.filter((x) => !c.attachments.some((y) => y.id === x.id));
+      if (fresh.length === 0) return d;
+      // Like Trello: the first image becomes the cover if the card has none.
+      const firstImage = fresh.find((x) => (x.mime ?? '').startsWith('image/'));
+      const cover = c.cover ?? (a.autoCover && firstImage ? firstImage.id : null);
+      let activity = d.activity;
+      for (const x of fresh) {
+        activity = log({ ...d, activity }, a, `attached ${x.name || x.url} to “${c.title}”`, c.id, x.id);
+      }
+      return { ...d, cards: { ...d.cards, [c.id]: { ...c, attachments: [...c.attachments, ...fresh], cover } }, activity };
+    }
+    case 'DELETE_ATTACHMENT': {
+      const c = d.cards[a.cardId];
+      if (!c) return d;
+      const att = c.attachments.find((x) => x.id === a.attachmentId);
+      if (!att) return d;
+      return {
+        ...d,
+        cards: {
+          ...d.cards,
+          [c.id]: { ...c, attachments: c.attachments.filter((x) => x.id !== a.attachmentId), cover: c.cover === a.attachmentId ? null : c.cover },
+        },
+        activity: log(d, a, `deleted the attachment ${att.name || att.url} from “${c.title}”`, c.id),
+      };
     }
     case 'SET_BACKGROUND':
       return { ...d, background: a.url, activity: log(d, a, a.url ? 'changed the board background' : 'removed the board background') };

@@ -714,3 +714,46 @@ body:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: 
   .brand > :not(img) { display: none; }
   .notif-panel { top: 50px; right: 4px; left: 4px; width: auto; }
 }
+
+/* ======================= File attachments ======================= */
+.cw-drop { position: relative; display: flex; flex-direction: column; }
+.drop-overlay { position: absolute; inset: 0; z-index: 60; border-radius: 12px; border: 3px dashed #388bff; background: rgba(233,242,255,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #0c66e4; font-weight: 600; font-size: 16px; pointer-events: none; }
+.lightbox { position: fixed; inset: 0; z-index: 200; background: rgba(9,12,20,.88); display: flex; align-items: center; justify-content: center; padding: 32px; cursor: zoom-out; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+.lightbox-close { position: absolute; top: 16px; right: 16px; border: none; background: rgba(255,255,255,.15); color: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+.attach-pop { display: flex; flex-direction: column; gap: 10px; }
+.attach-pop hr { width: 100%; border: none; border-top: 1px solid #dfe1e6; margin: 4px 0; }
+.attach-h { font-size: 14px; color: #172b4d; }
+.attach-h.left { display: block; font-size: 12px; color: #44546f; margin-top: 4px; }
+.attach-pop .center { text-align: center; margin: 0; font-size: 13px; }
+.choose-file { align-self: flex-start; display: inline-flex; gap: 6px; padding: 8px 14px; }
+.req { color: #c9372c; }
+.recent-links { display: flex; flex-direction: column; gap: 2px; }
+.recent-link { display: flex; gap: 10px; align-items: flex-start; border: none; background: none; text-align: left; padding: 6px; border-radius: 6px; color: #0c66e4; }
+.recent-link:hover { background: #f1f2f4; }
+.recent-link > span { display: flex; flex-direction: column; min-width: 0; }
+.recent-title { color: #172b4d; font-size: 14px; }
+.recent-link .muted { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.popover:has(.attach-pop) { width: 360px; }
+.attach-group { margin: 4px 0 8px; font-size: 13px; color: #44546f; font-weight: 600; }
+.attach-list li { gap: 12px; }
+.attach-thumb { width: 80px; height: 56px; border: none; border-radius: 4px; background: #f1f2f4; background-size: cover; background-position: center; display: inline-flex; align-items: center; justify-content: center; color: #626f86; flex-shrink: 0; cursor: pointer; padding: 0; }
+.attach-thumb.img { background-color: #dfe1e6; }
+.attach-thumb .ext { font-weight: 700; font-size: 13px; color: #44546f; letter-spacing: .5px; }
+.attach-name { border: none; background: none; padding: 0; text-align: left; font-weight: 600; color: #172b4d; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; cursor: pointer; }
+.attach-name:hover { text-decoration: underline; }
+.attach-name.static { cursor: default; text-decoration: none; }
+.icon-btn.boxed { border: 1px solid #dcdfe4; border-radius: 4px; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; opacity: 1; }
+.attach-list .icon-btn { display: inline-flex; }
+.attach-list .menu { min-width: 180px; }
+.upload-error .attach-thumb { background: #ffeceb; color: #c9372c; font-weight: 700; }
+.error-text { color: #c9372c; font-size: 12px; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.feed-preview { display: block; margin-top: 8px; border: none; padding: 0; background: none; cursor: zoom-in; max-width: 100%; }
+.feed-preview img { display: block; max-width: 100%; max-height: 320px; border-radius: 4px; box-shadow: 0 1px 2px rgba(9,30,66,.3); }
+.link-btn.inline { font-size: inherit; color: #0c66e4; padding: 0; text-decoration: none; }
+.link-btn.inline:hover { text-decoration: underline; }
+/* card cover on the board */
+.card-cover { margin: -8px -12px 8px; height: 140px; border-radius: 8px 8px 0 0; background: #dfe1e6 center / cover no-repeat; }
