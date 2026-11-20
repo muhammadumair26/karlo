@@ -5,6 +5,7 @@ import {
   Download,
   FileText,
   Lock,
+  MoreHorizontal,
   Paperclip,
   Pause,
   Pencil,
@@ -61,7 +62,7 @@ import type { BoardData, Me, Person } from '../lib/types';
 import { CardPicker } from './CardPicker';
 import { ComboInput } from './ComboInput';
 import { askConfirm, showAlert } from './dialog';
-import { Avatar, download, Modal } from './ui';
+import { Avatar, download, Menu, Modal } from './ui';
 
 export type ExpensesState = {
   expenses: Expense[];
@@ -141,6 +142,7 @@ export function ExpensesView({
   const [form, setForm] = useState<null | { edit?: Expense; preset?: Partial<ExpenseInput> }>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [month, setMonth] = useState('');
   const [category, setCategory] = useState('');
   const [payer, setPayer] = useState('');
@@ -164,7 +166,7 @@ export function ExpensesView({
     }
   };
 
-  if (!loaded) return <div className="dashboard"><div className="ex-empty">Loading money…</div></div>;
+  if (!loaded) return <div className="dashboard"><div className="ex-empty">Loading finance…</div></div>;
   if (!settings) return <ExpenseSetup boardId={boardId} isOwner={isOwner} people={people} me={me} />;
 
   const cur = settings.currency;
@@ -215,7 +217,7 @@ export function ExpensesView({
 
   const cardTitle = (id: string | null) => (id ? data.cards[id]?.title ?? '' : '');
   const exportCsv = () =>
-    download(`${boardTitle.replace(/[^\w-]+/g, '-')}-money${month ? '-' + month : ''}.csv`, toCsv(shown, nameOf, cardTitle, cur), 'text/csv');
+    download(`${boardTitle.replace(/[^\w-]+/g, '-')}-finance${month ? '-' + month : ''}.csv`, toCsv(shown, nameOf, cardTitle, cur), 'text/csv');
 
   const remove = async (e: Expense) => {
     const what = e.kind === 'income' ? 'income' : e.kind === 'settlement' ? 'payment' : 'expense';
@@ -243,21 +245,37 @@ export function ExpensesView({
     <div className="dashboard expenses">
       <div className="ex-toolbar">
         <div className="ex-title">
-          <Wallet size={18} /> Money
+          <Wallet size={18} /> Finance
           <span className="ex-private" title={`Only ${settings.partners.map((p) => nameOf(p.id)).join(' and ')} can see this`}>
             <Lock size={12} /> {settings.partners.length <= 1 ? 'Private · only you' : `Private · ${settings.partners.length} people`}
           </span>
         </div>
         <span className="header-spacer" />
-        <button className="btn translucent" onClick={() => setShowReport(true)} disabled={!expenses.length}>
+        <button className="btn translucent ex-secondary" onClick={() => setShowReport(true)} disabled={!expenses.length}>
           <FileText size={15} /> Monthly report
         </button>
-        <button className="btn translucent" onClick={exportCsv} disabled={!shown.length}>
+        <button className="btn translucent ex-secondary" onClick={exportCsv} disabled={!shown.length}>
           <Download size={15} /> Excel (CSV)
         </button>
-        <button className="btn translucent" onClick={() => setShowSettings(true)}>
+        <button className="btn translucent ex-secondary" onClick={() => setShowSettings(true)}>
           <Settings2 size={15} /> Budgets & settings
         </button>
+        <span className="menu-anchor ex-more">
+          <button className="btn translucent" onClick={() => setMoreOpen(!moreOpen)} aria-label="More finance actions">
+            <MoreHorizontal size={16} />
+          </button>
+          <Menu open={moreOpen} onClose={() => setMoreOpen(false)}>
+            <button disabled={!expenses.length} onClick={() => (setMoreOpen(false), setShowReport(true))}>
+              <FileText size={15} /> Monthly report
+            </button>
+            <button disabled={!shown.length} onClick={() => (setMoreOpen(false), exportCsv())}>
+              <Download size={15} /> Excel (CSV)
+            </button>
+            <button onClick={() => (setMoreOpen(false), setShowSettings(true))}>
+              <Settings2 size={15} /> Budgets & settings
+            </button>
+          </Menu>
+        </span>
         <button className="btn translucent ex-income-btn" onClick={() => setForm({ preset: { kind: 'income', category: 'Sales' } })}>
           <TrendingUp size={15} /> Add income
         </button>
@@ -1282,7 +1300,7 @@ export function reportHtml(o: {
   .noprint{margin-bottom:18px} .noprint button{font:inherit;padding:8px 14px;border-radius:6px;border:none;background:#0c66e4;color:#fff;cursor:pointer}
 </style></head><body>
 <div class="noprint"><button onclick="print()">Print / Save as PDF</button></div>
-<h1>${esc(o.boardTitle)} — money report</h1>
+<h1>${esc(o.boardTitle)} — finance report</h1>
 <div class="meta">${esc(periodLabel)} · amounts in ${esc(cur)} · generated ${esc(new Date().toLocaleString())}</div>
 <div class="tiles"><div class="tile"><b>${m(inc)}</b><span>Income</span></div><div class="tile"><b>${m(cost)}</b><span>Costs</span></div>
 ${
@@ -1399,7 +1417,7 @@ function ReportModal({
           <button
             className="btn ghost"
             onClick={() =>
-              download(`${boardTitle.replace(/[^\w-]+/g, '-')}-money-${period || 'all'}.csv`, toCsv(rows, nameOf, cardTitle, settings.currency), 'text/csv')
+              download(`${boardTitle.replace(/[^\w-]+/g, '-')}-finance-${period || 'all'}.csv`, toCsv(rows, nameOf, cardTitle, settings.currency), 'text/csv')
             }
           >
             <Download size={14} /> Excel (CSV)

@@ -18,6 +18,7 @@ import * as api from './lib/api';
 import { starterBoard, uid } from './lib/board';
 import { karloExport } from './lib/importers';
 import { startPresence } from './lib/presence';
+import { loadPrefs } from './lib/prefs';
 import { registerServiceWorker } from './lib/push';
 import { parseCardLink } from './lib/recent';
 import type { BoardMeta, Me, Workspace } from './lib/types';
@@ -178,6 +179,10 @@ function Home({ userId, email }: { userId: string; email: string }) {
 
   // Show me as "active now" to others while Karlo is open.
   useEffect(() => startPresence(userId), [userId]);
+  // Personal preferences (e.g. Views menu order), same on every device.
+  useEffect(() => {
+    void loadPrefs(userId);
+  }, [userId]);
 
   // Live updates to the board list and memberships.
   useEffect(() => {

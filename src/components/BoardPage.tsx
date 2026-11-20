@@ -49,6 +49,8 @@ import { TableView } from './TableView';
 import { BoardSettingsModal } from './BoardSettings';
 import { DuePrompt } from './DuePrompt';
 import { VoiceAssistant } from './VoiceAssistant';
+import { ViewsCustomizer } from './ViewsCustomizer';
+import { arrange, usePrefs } from '../lib/prefs';
 import { ExpensesView } from './ExpensesView';
 import { useExpenses } from '../lib/expenses';
 import { ActivityFeed } from './ActivityFeed';
@@ -66,7 +68,7 @@ const VIEWS: { id: View; label: string; Icon: typeof Kanban }[] = [
   { id: 'dashboard', label: 'Dashboard', Icon: Gauge },
   { id: 'timeline', label: 'Timeline', Icon: GanttChart },
   { id: 'map', label: 'Map', Icon: MapPin },
-  { id: 'expenses', label: 'Money', Icon: Wallet },
+  { id: 'expenses', label: 'Finance', Icon: Wallet },
 ];
 
 const STATUS_TEXT: Record<SyncStatus, string> = {
@@ -244,8 +246,12 @@ export function BoardPage({
   const expenseState = useExpenses(meta.id);
   const isOwner = meta.role === 'owner';
   const canSeeExpenses = expenseState.allowed || isOwner;
-  const views = VIEWS.filter((v) => v.id !== 'expenses' || canSeeExpenses);
-  const shownView: View = view === 'expenses' && expenseState.loaded && !canSeeExpenses ? 'board' : view;
+  const prefs = usePrefs();
+  const [customizeViews, setCustomizeViews] = useState(false);
+  const views = arrange(VIEWS, prefs.viewOrder, prefs.hiddenViews).filter((v) => v.id !== 'expenses' || canSeeExpenses);
+  const baseView: View = view === 'expenses' && expenseState.loaded && !canSeeExpenses ? 'board' : view;
+  // A view you've hidden falls back to your first visible one.
+  const shownView: View = views.some((v) => v.id === baseView) || !views.length ? baseView : (views[0].id as View);
   const setViewSaved = (v: View) => {
     setView(v);
     try {
@@ -325,12 +331,18 @@ export function BoardPage({
                 <v.Icon size={17} /> {v.label}
               </button>
             ))}
+            <hr />
+            <button className="menu-subtle" onClick={() => (setViewsOpen(false), setCustomizeViews(true))}>
+              <SlidersHorizontal size={15} /> Customize views…
+            </button>
           </Menu>
         </span>
 
+        {shownView !== 'expenses' && (
         <button className={`btn translucent hide-phone ${hasFilters(filters) ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)}>
           <Filter size={15} /> Filter{hasFilters(filters) ? ' •' : ''}
         </button>
+        )}
 
         <span className="header-spacer" />
         <span className={`sync-status sync-${status} ${status === 'saved' && savedFaded ? 'faded' : ''}`} aria-live="polite">{STATUS_TEXT[status]}</span>
@@ -444,12 +456,18 @@ export function BoardPage({
                 <v.Icon size={17} /> {v.label}
               </button>
             ))}
+            <hr />
+            <button className="menu-subtle" onClick={() => (setViewsOpen(false), setCustomizeViews(true))}>
+              <SlidersHorizontal size={15} /> Customize views…
+            </button>
           </Menu>
         </span>
+        {shownView !== 'expenses' && (
         <button className={showFilters || hasFilters(filters) ? 'on' : ''} onClick={() => setShowFilters(!showFilters)}>
           <Filter size={20} />
           <span>Filter{hasFilters(filters) ? ' •' : ''}</span>
         </button>
+        )}
         <button onClick={() => setPanel('share')}>
           <UserPlus size={20} />
           <span>Share</span>
@@ -460,7 +478,7 @@ export function BoardPage({
         </button>
       </nav>
 
-      {showFilters && data && (
+      {showFilters && data && shownView !== 'expenses' && (
         <div className="filter-bar">
           <input
             className="text-input"
@@ -686,6 +704,9 @@ export function BoardPage({
           money={expenseState.allowed ? expenseState.settings : null}
           dispatch={dispatch}
         />
+      )}
+      {customizeViews && (
+        <ViewsCustomizer userId={me.id} all={VIEWS.filter((v) => v.id !== 'expenses' || canSeeExpenses)} order={prefs.viewOrder} hidden={prefs.hiddenViews} onClose={() => setCustomizeViews(false)} />
       )}
       {pendingMove && data && (
         <DuePrompt

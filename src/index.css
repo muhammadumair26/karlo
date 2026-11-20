@@ -1589,3 +1589,25 @@ td.ex-in strong { color: #216e4e; }
 .va-money { display: flex; gap: 4px; }
 .va-money input { flex: 1; min-width: 0; }
 .va-err { width: 100%; }
+/* finance toolbar: secondary actions fold into ⋯ on phones */
+.ex-more { display: none; }
+@media (max-width: 700px) {
+  .ex-toolbar .ex-secondary { display: none; }
+  .ex-more { display: inline-flex; }
+  .ex-toolbar { gap: 6px; }
+  .ex-toolbar .btn { padding: 7px 10px; font-size: 13px; }
+  .ex-title { width: 100%; }
+}
+.menu-subtle { color: #44546f; font-size: 13px; }
+/* views customizer */
+.vc { max-width: 440px; }
+.vc-lead { margin: 0; font-size: 13px; line-height: 1.5; }
+.vc-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.vc-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; background: #f7f8f9; color: #172b4d; font-size: 14px; cursor: grab; }
+.vc-row.dragging { background: #e9f2ff; }
+.vc-row.off { opacity: .5; }
+.vc-row.off .vc-name { text-decoration: line-through; }
+.vc-grip { color: #8590a2; }
+.vc-name { flex: 1; }
+.vc-row .icon-btn { width: 28px; height: 28px; display: inline-grid; place-items: center; color: #44546f; }
+.vc-row .icon-btn:disabled { opacity: .3; }
