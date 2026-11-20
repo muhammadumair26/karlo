@@ -13,7 +13,8 @@ export function hideBoot() {
   done = true;
   const el = document.getElementById('boot');
   if (!el) return;
-  const wait = Math.max(0, INTRO_MS - performance.now());
+  const start = (window as { __bootStart?: number }).__bootStart ?? 0;
+  const wait = Math.max(0, INTRO_MS - (performance.now() - start));
   window.setTimeout(() => {
     el.classList.add('boot-out');
     window.setTimeout(() => el.remove(), 520);
