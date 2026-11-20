@@ -1830,3 +1830,10 @@ body:has(.app-banner) .va-fab { bottom: 148px; }
 
 /* Pop-ups sit in the middle of the screen (auto margins keep tall ones scrollable from the top). */
 .modal-backdrop > .modal:not(.card-window) { margin-top: auto; margin-bottom: auto; }
+
+/* Phones: the card's close button sits top-left (clear of camera cut-outs and the iPhone Duo's status pill on the right). */
+@media (max-width: 720px) {
+  .cw-top .cw-close { order: -1; margin: 0 2px 0 -6px; }
+  .cw-top { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+}
+.native-app .topbar { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }

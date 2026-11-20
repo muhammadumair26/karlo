@@ -741,7 +741,7 @@ export function CardModal({
             </Menu>
           </span>
         )}
-        <button className="icon-btn cw-icon" onClick={onClose} aria-label="Close">
+        <button className="icon-btn cw-icon cw-close" onClick={onClose} aria-label="Close">
           <X size={20} />
         </button>
       </div>
