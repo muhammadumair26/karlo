@@ -1807,3 +1807,23 @@ body:has(.app-banner) .va-fab { bottom: 148px; }
 .btn:disabled { opacity: .55; cursor: default; box-shadow: none; }
 .btn:focus-visible { outline: 3px solid rgba(79, 70, 229, .3); outline-offset: 1px; }
 .btn svg { flex-shrink: 0; }
+
+/* ---------------------------------------------------------------- Security & sign-in (card layout, matches profile) */
+.sec { max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+.sec .sec-block { gap: 14px; padding: 16px; border: 1px solid #e4e7ec; border-radius: 14px; background: #fff; }
+.sec .sec-block:last-child { border-bottom: 1px solid #e4e7ec; }
+.sec .sec-head { align-items: center; gap: 12px; }
+.sec .sec-head > svg { box-sizing: content-box; width: 17px; height: 17px; padding: 8px; margin: 0; border-radius: 10px; background: #eef2ff; color: #4f46e5; align-self: flex-start; }
+.sec .sec-head > div { gap: 3px; }
+.sec .sec-head strong { font-size: 15px; color: #172b4d; }
+.sec .sec-head .muted { font-size: 13px; line-height: 1.5; color: #626f86; }
+.sec .sec-badge { padding: 3px 10px; border-radius: 999px; font-size: 11.5px; align-self: flex-start; }
+.sec .sec-note { font-size: 13px; color: #626f86; padding: 10px 12px; background: #f7f8fa; border-radius: 10px; }
+.sec .sec-list li { padding: 10px 12px; border-radius: 10px; background: #f7f8fa; border: 1px solid #eef0f3; }
+.sec .sec-btn { align-self: stretch; min-height: 46px; border-radius: 12px; font-size: 15px; }
+.sec .sec-btn.danger-text { color: #c9372c; border: 1.5px solid #f3c1bd; background: #fff; }
+.sec .sec-toggle-row { padding: 10px 12px; background: #f7f8fa; border-radius: 10px; }
+.sec .sec-toggle-row .muted { font-size: 13px; }
+.sec .sec-setup { align-items: stretch; }
+.sec .sec-qr { align-self: center; border-radius: 12px; }
+.sec .sec-code input { border-radius: 10px; }
