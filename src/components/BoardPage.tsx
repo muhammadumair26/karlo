@@ -43,9 +43,10 @@ import { KanbanView } from './KanbanView';
 import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
+import { ActivityFeed } from './ActivityFeed';
 import { MemberCard, type MemberCardTarget } from './MemberCard';
 import { handleOf } from '../lib/notify';
-import { Avatar, download, Menu, Modal, timeAgo } from './ui';
+import { Avatar, download, Menu, Modal } from './ui';
 
 type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map';
 
@@ -591,7 +592,18 @@ export function BoardPage({
 
       {panel === 'activity' && data && (
         <Modal
-          title={activityBy ? `Activity by ${activityBy}` : 'Activity'}
+          wide
+          title={
+            <span className="act-title">
+              <History size={20} />
+              {activityBy
+                ? (() => {
+                    const p = people.find((x) => x.name === activityBy);
+                    return p ? `${p.name} (${handleOf(p)})` : activityBy;
+                  })()
+                : 'Activity'}
+            </span>
+          }
           onClose={() => {
             setActivityBy(null);
             closePanel();
@@ -602,24 +614,16 @@ export function BoardPage({
               Show everyone’s activity
             </button>
           )}
-          <ul className="activity">
-            {data.activity.filter((a) => !activityBy || a.by === activityBy).map((a) => (
-              <li key={a.id}>
-                <strong>{a.by}</strong>{' '}
-                {a.cardId && data.cards[a.cardId] ? (
-                  <button className="link-btn" onClick={() => (setPanel(null), setOpenCardId(a.cardId!))}>
-                    {a.text}
-                  </button>
-                ) : (
-                  a.text
-                )}{' '}
-                <span className="muted">· {timeAgo(a.at)}</span>
-              </li>
-            ))}
-            {data.activity.filter((a) => !activityBy || a.by === activityBy).length === 0 && (
-              <li className="muted">{activityBy ? `${activityBy} hasn’t done anything on this board yet.` : 'No activity yet.'}</li>
-            )}
-          </ul>
+          <ActivityFeed
+            data={data}
+            people={people}
+            by={activityBy}
+            onOpenCard={(id) => {
+              setPanel(null);
+              setActivityBy(null);
+              setOpenCardId(id);
+            }}
+          />
         </Modal>
       )}
 

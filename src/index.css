@@ -1035,3 +1035,19 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 }
 /* Unread notifications for me on this card (Trello-style red bell) */
 .badge.notif-badge { background: #c9372c; color: #fff; border-radius: 4px; padding: 2px 6px; font-weight: 600; }
+
+/* ======================= Activity feed (Trello style) ======================= */
+.act-title { display: inline-flex; align-items: center; gap: 8px; }
+.act-feed { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 18px; }
+.act-item { display: flex; gap: 12px; align-items: flex-start; }
+.act-main { flex: 1; min-width: 0; }
+.act-line { font-size: 15px; line-height: 1.45; color: #172b4d; word-wrap: break-word; }
+.act-link { border: none; background: none; padding: 0; font: inherit; color: #0c66e4; text-decoration: underline; cursor: pointer; text-align: left; }
+.act-link.plain { text-decoration: none; }
+.act-link.plain:hover, .act-link:hover { color: #0055cc; }
+.act-repeat { margin-left: 6px; font-size: 12px; font-weight: 700; color: #44546f; background: #f1f2f4; border-radius: 10px; padding: 1px 7px; }
+.act-time { display: inline-block; border: none; background: none; padding: 0; margin-top: 2px; font-size: 13px; color: #0c66e4; text-decoration: underline; cursor: pointer; }
+.act-time.static { color: #626f86; text-decoration: none; cursor: default; }
+.act-preview { display: block; margin-top: 8px; border: none; padding: 0; background: none; cursor: zoom-in; max-width: 100%; }
+.act-preview img { display: block; max-width: 100%; max-height: 360px; border-radius: 6px; box-shadow: 0 1px 3px rgba(9,30,66,.3); }
+.act-empty { padding: 12px 0; }
