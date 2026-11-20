@@ -59,6 +59,7 @@ import {
 } from '../lib/expenses';
 import type { BoardData, Me, Person } from '../lib/types';
 import { CardPicker } from './CardPicker';
+import { ComboInput } from './ComboInput';
 import { askConfirm, showAlert } from './dialog';
 import { Avatar, download, Modal } from './ui';
 
@@ -975,15 +976,10 @@ export function ExpenseForm({
         ) : (
           <>
             <div className="ex-form-row">
-              <label className="pop-field">
+              <div className="pop-field">
                 Category
-                <input list="ex-cats" value={f.category} onChange={(e) => set({ category: e.target.value })} placeholder="Pick or type a new one" />
-                <datalist id="ex-cats">
-                  {cats.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </label>
+                <ComboInput value={f.category} onChange={(v) => set({ category: v })} options={cats} placeholder="Pick or type a new one" ariaLabel="Category" newLabel="New category" />
+              </div>
               <label className="pop-field">
                 {income ? 'Received by' : 'Paid by'}
                 <select className="field-select" value={f.paid_by ?? ''} onChange={(e) => set({ paid_by: e.target.value || null })}>
@@ -1159,18 +1155,20 @@ function SettingsModal({
           Monthly budget per category ({currency})
           {catBudgets.map((b, i) => (
             <div key={i} className="ex-cb-row">
-              <input list="ex-cb-cats" value={b.category} placeholder="Category" onChange={(e) => setCatBudgets(catBudgets.map((x, j) => (j === i ? { ...x, category: e.target.value } : x)))} />
+              <ComboInput
+                value={b.category}
+                placeholder="Category"
+                ariaLabel="Budget category"
+                newLabel="New category"
+                options={[...new Set([...costCats, b.category].filter(Boolean))]}
+                onChange={(v) => setCatBudgets(catBudgets.map((x, j) => (j === i ? { ...x, category: v } : x)))}
+              />
               <input inputMode="decimal" value={b.amount} placeholder="Amount" onChange={(e) => setCatBudgets(catBudgets.map((x, j) => (j === i ? { ...x, amount: e.target.value.replace(/[^\d.,]/g, '') } : x)))} />
               <button className="icon-btn" aria-label="Remove budget" onClick={() => setCatBudgets(catBudgets.filter((_, j) => j !== i))}>
                 <X size={15} />
               </button>
             </div>
           ))}
-          <datalist id="ex-cb-cats">
-            {costCats.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
           <button type="button" className="btn ghost small ex-add-line" onClick={() => setCatBudgets([...catBudgets, { category: costCats[0] ?? '', amount: '' }])}>
             <Plus size={14} /> Add a category budget
           </button>
