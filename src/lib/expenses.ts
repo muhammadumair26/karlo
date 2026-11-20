@@ -277,18 +277,24 @@ const recurringFromRow = (r: Record<string, unknown>): Recurring => ({ ...(r as 
 
 export type RecurringInput = Pick<Recurring, 'kind' | 'title' | 'amount' | 'currency' | 'fx_rate' | 'category' | 'paid_by' | 'shared' | 'card_id' | 'note' | 'frequency' | 'start_on' | 'end_on'>;
 
+/** Tells every open Money view to reload now (don't rely on the live feed alone). */
+export const MONEY_CHANGED = 'karlo:money-changed';
+const changed = () => window.dispatchEvent(new Event(MONEY_CHANGED));
+
 /** Creates a repeating item and adds any occurrences already due (including today's). */
 export async function createRecurring(boardId: string, r: RecurringInput) {
   if (!supabase) throw new Error('Not connected');
   const { error } = await supabase.from('expense_recurring').insert({ ...r, board_id: boardId, next_on: r.start_on });
   if (error) throw new Error(error.message);
   await runRecurring(boardId);
+  changed();
 }
 
 export async function updateRecurring(id: string, patch: Partial<Pick<Recurring, 'active' | 'amount' | 'title' | 'end_on'>>) {
   if (!supabase) return;
   const { error } = await supabase.from('expense_recurring').update(patch).eq('id', id);
   if (error) throw new Error(error.message);
+  changed();
 }
 
 /** Stops a repeating item. Entries it already added stay. */
@@ -296,6 +302,7 @@ export async function deleteRecurring(id: string) {
   if (!supabase) return;
   const { error } = await supabase.from('expense_recurring').delete().eq('id', id);
   if (error) throw new Error(error.message);
+  changed();
 }
 
 /** Adds any due repeating entries for this board (also runs daily on the server). */
@@ -314,6 +321,7 @@ export async function saveExpense(boardId: string, input: ExpenseInput, id?: str
     : supabase.from('expenses').insert({ ...input, board_id: boardId });
   const { data, error } = await q.select().single();
   if (error) throw new Error(error.message);
+  changed();
   return fromRow(data);
 }
 
@@ -322,11 +330,13 @@ export async function deleteExpense(e: Expense) {
   const { error } = await supabase.from('expenses').delete().eq('id', e.id);
   if (error) throw new Error(error.message);
   if (e.receipt_path) await supabase.storage.from('receipts').remove([e.receipt_path]);
+  changed();
 }
 
-export async function saveSettings(s: ExpenseSettings) {
-  if (!supabase) return;
-  const { error } = await supabase
+/** Saves budgets/currency/people and returns what the database actually stored. */
+export async function saveSettings(s: ExpenseSettings): Promise<ExpenseSettings> {
+  if (!supabase) throw new Error('Not connected');
+  const { data, error } = await supabase
     .from('expense_settings')
     .upsert({
       board_id: s.board_id,
@@ -335,8 +345,13 @@ export async function saveSettings(s: ExpenseSettings) {
       partners: s.partners,
       category_budgets: s.category_budgets ?? {},
       updated_at: new Date().toISOString(),
-    });
+    })
+    .select()
+    .single();
   if (error) throw new Error(error.message);
+  if (!data) throw new Error("The settings weren't saved — only the board owner can change them.");
+  changed();
+  return settingsFromRow(data);
 }
 
 export async function uploadReceipt(boardId: string, file: File): Promise<{ path: string; name: string }> {
@@ -395,9 +410,11 @@ export function useExpenses(boardId: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_settings', filter: `board_id=eq.${boardId}` }, soon)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expense_recurring', filter: `board_id=eq.${boardId}` }, soon)
       .subscribe();
+    window.addEventListener(MONEY_CHANGED, soon);
     return () => {
       clearTimeout(t);
       sb.removeChannel(ch);
+      window.removeEventListener(MONEY_CHANGED, soon);
     };
   }, [boardId, load]);
 

@@ -1119,7 +1119,7 @@ function SettingsModal({
       const category_budgets = Object.fromEntries(
         catBudgets.map((x) => [x.category.trim(), Number(x.amount.replace(/,/g, ''))]).filter(([c, a]) => c && (a as number) > 0),
       );
-      await saveSettings({
+      const saved = await saveSettings({
         ...settings,
         currency,
         budget: budget.trim() && b > 0 ? b : null,
@@ -1127,6 +1127,15 @@ function SettingsModal({
         partners: partners.map((p) => ({ id: p.id, share: Number(p.share) || 0 })),
       });
       onClose();
+      const n = Object.keys(saved.category_budgets ?? {}).length;
+      void showAlert({
+        title: 'Settings saved',
+        message: [
+          saved.budget ? `Total budget: ${money(saved.budget, saved.currency)}.` : 'No total budget.',
+          n ? `${n} category budget${n > 1 ? 's' : ''} set.` : 'No category budgets.',
+        ].join(' '),
+        tone: 'access',
+      });
     } catch (e) {
       setErr((e as Error).message);
       setBusy(false);

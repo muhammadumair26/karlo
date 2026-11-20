@@ -212,6 +212,16 @@ export function BoardPage({
   }, [meta.id]);
 
   const peopleMap = useMemo(() => new Map(people.map((p) => [p.user_id, p])), [people]);
+  // "✓ Saved" only shows briefly after a save; problems (offline/error) stay visible.
+  const [savedFaded, setSavedFaded] = useState(true);
+  useEffect(() => {
+    if (status !== 'saved') {
+      setSavedFaded(false);
+      return;
+    }
+    const t = setTimeout(() => setSavedFaded(true), 2000);
+    return () => clearTimeout(t);
+  }, [status]);
   // Project expenses: only the partners get data back; the owner may set them up.
   const expenseState = useExpenses(meta.id);
   const isOwner = meta.role === 'owner';
@@ -305,7 +315,7 @@ export function BoardPage({
         </button>
 
         <span className="header-spacer" />
-        <span className={`sync-status sync-${status}`}>{STATUS_TEXT[status]}</span>
+        <span className={`sync-status sync-${status} ${status === 'saved' && savedFaded ? 'faded' : ''}`} aria-live="polite">{STATUS_TEXT[status]}</span>
         <span className="header-people hide-phone">
           {people.slice(0, 5).map((p) => (
             <button key={p.user_id} className="header-avatar" title={p.name} onClick={(e) => openMember(p, e.currentTarget)}>
