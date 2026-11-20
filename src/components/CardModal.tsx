@@ -76,6 +76,16 @@ export function CardModal({
           <strong>{listId && data.lists[listId]?.title}</strong>
         )}
         {card.archived && <span className="archived-pill">Archived</span>}
+        {editable ? (
+          <button
+            className={`complete-toggle ${card.completed ? 'on' : ''}`}
+            onClick={() => update({ completed: !card.completed }, card.completed ? 'marked {card} incomplete' : 'completed {card}')}
+          >
+            {card.completed ? '✓ Completed' : '○ Mark complete'}
+          </button>
+        ) : (
+          card.completed && <span className="complete-toggle on">✓ Completed</span>
+        )}
       </div>
 
       <div className="card-fields">
@@ -107,6 +117,23 @@ export function CardModal({
               ))}
             {people.length === 0 && <span className="muted">Invite people to assign them.</span>}
           </div>
+          {card.guests.length > 0 && (
+            <div className="guest-row">
+              <span className="muted">Imported:</span>
+              {card.guests.map((g) => (
+                <span key={g} className="assignee-chip guest" title="Imported from Trello/ClickUp — not linked to a Karlo account">
+                  <Avatar id={'guest:' + g} name={g} size={22} />
+                  {g}
+                  {editable && (
+                    <button className="link-btn" onClick={() => update({ guests: card.guests.filter((x) => x !== g) })} aria-label={`Remove ${g}`}>
+                      ✕
+                    </button>
+                  )}
+                </span>
+              ))}
+              <span className="muted small-hint">Link them to teammates from the board menu → Link imported people.</span>
+            </div>
+          )}
         </section>
 
         <section>

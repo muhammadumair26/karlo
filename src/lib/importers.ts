@@ -147,14 +147,16 @@ class Builder {
   }
 }
 
-const footer = (source: string, names: string[]) =>
-  names.length ? `\n\n— Imported from ${source}. Assigned to: ${names.join(', ')}` : '';
 
 // ------------------------------------------------------------------ Trello
 
 interface TrelloExport {
   name: string;
-  prefs?: { backgroundColor?: string };
+  prefs?: {
+    backgroundColor?: string;
+    backgroundImage?: string | null;
+    backgroundImageScaled?: { width: number; url: string }[] | null;
+  };
   lists: { id: string; name: string; closed: boolean; pos: number }[];
   cards: {
     id: string;
@@ -218,7 +220,8 @@ export function importTrello(json: TrelloExport): ImportedBoard {
     );
     const names = (c.idMembers ?? []).map((id) => members.get(id)).filter((n): n is string => !!n);
     b.card(listId, c.name, {
-      description: (c.desc ?? '') + footer('Trello', names),
+      description: c.desc ?? '',
+      guests: names,
       due: toDate(c.due),
       start: toDate(c.start ?? null),
       dueDone: !!c.dueComplete,
@@ -235,6 +238,10 @@ export function importTrello(json: TrelloExport): ImportedBoard {
   }
   const board = b.done(json.name || 'Trello board');
   if (json.prefs?.backgroundColor?.startsWith('#')) board.color = json.prefs.backgroundColor;
+  // Prefer a ~1920px scaled copy of the Trello background photo.
+  const scaled = [...(json.prefs?.backgroundImageScaled ?? [])].sort((x, y) => x.width - y.width);
+  const bg = scaled.find((x) => x.width >= 1600)?.url ?? scaled[scaled.length - 1]?.url ?? json.prefs?.backgroundImage;
+  if (bg) board.data.background = bg;
   return board;
 }
 
@@ -320,7 +327,8 @@ export function importCSV(text: string, fileName: string, source: 'clickup' | 'c
       const completed = /^(true|yes|1|done|complete|completed)$/i.test(get(r, 'completed'));
       const commentsRaw = get(r, 'comments');
       b.card(listId, title, {
-        description: get(r, 'description') + footer(sourceName, names),
+        description: get(r, 'description'),
+        guests: names,
         due: toDate(get(r, 'due')),
         start: toDate(get(r, 'start')),
         dueDone: completed,
@@ -400,7 +408,7 @@ export function boardToCSV(data: BoardData, people: Map<string, Person>): string
         l.title,
         c.description,
         c.labelIds.map((id) => labels.get(id)?.name || labels.get(id)?.color).filter(Boolean).join(', '),
-        c.assignees.map((id) => people.get(id)?.name ?? id).join(', '),
+        [...c.assignees.map((id) => people.get(id)?.name ?? id), ...c.guests].join(', '),
         c.priority === 'none' ? '' : c.priority,
         c.start,
         c.due,

@@ -1,3 +1,4 @@
+import { Download, Star, Upload, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { BoardMeta, Workspace } from '../lib/types';
 import { canEdit } from '../lib/types';
@@ -7,6 +8,7 @@ export function Sidebar({
   workspaces,
   boards,
   activeBoardId,
+  starred,
   onSelect,
   onNewBoard,
   onNewWorkspace,
@@ -17,6 +19,7 @@ export function Sidebar({
   workspaces: Workspace[];
   boards: BoardMeta[];
   activeBoardId: string | null;
+  starred: string[];
   onSelect: (id: string) => void;
   onNewBoard: (workspaceId: string, title: string) => void;
   onNewWorkspace: (name: string) => void;
@@ -27,6 +30,8 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const wsIds = new Set(workspaces.map((w) => w.id));
   const shared = boards.filter((b) => !wsIds.has(b.workspace_id));
+
+  const starredBoards = starred.map((id) => boards.find((b) => b.id === id)).filter((b): b is BoardMeta => !!b);
 
   const boardItem = (b: BoardMeta) => (
     <li key={b.id} className={b.id === activeBoardId ? 'active' : ''}>
@@ -40,6 +45,16 @@ export function Sidebar({
 
   return (
     <aside className="sidebar">
+      {starredBoards.length > 0 && (
+        <section className="ws">
+          <div className="ws-head">
+            <span className="ws-label">
+              <Star size={12} fill="currentColor" /> Starred
+            </span>
+          </div>
+          <ul>{starredBoards.map(boardItem)}</ul>
+        </section>
+      )}
       {workspaces.map((w) => {
         const wsBoards = boards.filter((b) => b.workspace_id === w.id);
         const isCollapsed = collapsed[w.id];
@@ -52,7 +67,7 @@ export function Sidebar({
                 <span className="ellipsis">{w.name}</span>
               </button>
               <button className="icon-btn light small" title="Members & settings" onClick={() => onOpenWorkspace(w.id)}>
-                👥
+                <Users size={15} />
               </button>
             </div>
             {!isCollapsed && (
@@ -79,10 +94,10 @@ export function Sidebar({
       <div className="sidebar-footer">
         <AddForm label="New workspace" placeholder="Team or workspace name…" submitLabel="Create" onAdd={onNewWorkspace} />
         <button className="add-trigger" onClick={onImport}>
-          ⇪ Import (Trello, ClickUp, CSV)
+          <Upload size={14} /> Import (Trello, ClickUp, CSV)
         </button>
         <button className="add-trigger" onClick={onExportAll}>
-          ⇩ Export all boards
+          <Download size={14} /> Export all boards
         </button>
       </div>
     </aside>

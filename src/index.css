@@ -431,3 +431,74 @@ input, textarea { font: inherit; color: inherit; }
   .cal-card { font-size: 10px; padding: 2px 3px; }
   .people-btn { display: none; }
 }
+
+/* ======================= v3: Trello-style polish ======================= */
+.board-bg {
+  position: fixed; inset: 0; z-index: 0; background-size: cover; background-position: center;
+}
+.app { position: relative; }
+.topbar, .body, .banner-error { position: relative; z-index: 1; }
+.app:has(.board-bg) .topbar { background: rgba(0,0,0,.42); backdrop-filter: blur(6px); }
+.app:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: blur(10px); }
+.board-header.on-photo { background: rgba(0,0,0,.32); backdrop-filter: blur(4px); margin-bottom: 10px; }
+.icon-btn.star { opacity: .9; }
+.icon-btn.star.on { color: #fbbf24; }
+.btn, .seg button, .add-trigger, .ws-label { display: inline-flex; align-items: center; gap: 6px; }
+.btn.translucent { backdrop-filter: blur(4px); }
+
+/* lists like Trello */
+.list { border-radius: 12px; background: #f1f2f4; box-shadow: 0 1px 1px rgba(9,30,66,.25); padding: 6px 4px 6px 8px; }
+.list-header { padding: 6px 4px 8px 4px; gap: 2px; }
+.list-title { font-size: 14px; }
+.list-count { margin-right: 2px; }
+.icon-btn.list-icon { opacity: .75; display: inline-flex; padding: 5px; border-radius: 6px; }
+.list-cards { padding: 2px 4px 4px 0; scrollbar-width: thin; }
+.list.collapsed {
+  width: 44px; min-height: 160px; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; color: #44546f;
+}
+.list.collapsed:hover { background: #e4e6ea; }
+.collapsed-title { writing-mode: vertical-rl; font-weight: 600; color: #172b4d; white-space: nowrap; }
+
+/* cards like Trello */
+.card { position: relative; border-radius: 8px; padding: 8px 12px 8px; font-size: 14px; line-height: 20px; }
+.card:hover { outline: 2px solid #388bff; background: #fff; }
+.card-title-row { display: flex; align-items: flex-start; gap: 0; }
+.card-title { flex: 1; padding-right: 18px; }
+.complete-circle {
+  width: 0; height: 16px; margin-top: 2px; flex-shrink: 0; border-radius: 50%; border: 1.5px solid #626f86;
+  background: #fff; display: inline-flex; align-items: center; justify-content: center; padding: 0; color: #fff;
+  opacity: 0; overflow: hidden; transition: width .12s, margin .12s, opacity .12s;
+}
+.card:hover .complete-circle, .complete-circle.on { width: 16px; margin-right: 6px; opacity: 1; }
+.complete-circle:hover { border-color: #1f845a; }
+.complete-circle.on { background: #1f845a; border-color: #1f845a; }
+.card.completed .card-title { color: #44546f; }
+.card-edit {
+  position: absolute; top: 6px; right: 6px; border: none; background: #f1f2f4; border-radius: 50%; width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center; color: #44546f; opacity: 0; transition: opacity .1s;
+}
+.card:hover .card-edit { opacity: 1; }
+.card-edit:hover { background: #dcdfe4; }
+.card-badges { gap: 4px 10px; margin-top: 4px; color: #626f86; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 2px 4px; color: #44546f; }
+.badge.complete { padding: 2px 6px; }
+.badge.due-overdue, .badge.due-soon, .badge.due-done { padding: 2px 6px; border-radius: 4px; }
+.badge.due-overdue { background: #c9372c; }
+.badge.due-soon { background: #f5cd47; }
+.card-badges .avatar-stack .avatar { box-shadow: 0 0 0 2px #fff; }
+.label-chip-sm { height: 16px; min-width: 40px; border-radius: 4px; }
+.add-trigger { border-radius: 8px; }
+
+/* modal bits */
+.complete-toggle { margin-left: 10px; border: 1px solid #c1c7d0; background: #fff; border-radius: 14px; padding: 2px 10px; font-size: 12px; font-weight: 600; color: #44546f; }
+.complete-toggle.on { background: #1f845a; border-color: #1f845a; color: #fff; }
+.guest-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.assignee-chip.guest { border-style: dashed; color: #44546f; }
+.small-hint { font-size: 11px; }
+.bg-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 14px; }
+.bg-grid.colors { grid-template-columns: repeat(8, 1fr); }
+.bg-thumb { aspect-ratio: 16/10; border-radius: 6px; border: none; background-size: cover; background-position: center; cursor: pointer; }
+.bg-grid.colors .bg-thumb { aspect-ratio: 1.4; }
+.bg-thumb:hover { filter: brightness(.9); }
+.bg-thumb.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #388bff; }
+.ws-label { gap: 4px; }

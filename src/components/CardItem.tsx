@@ -1,7 +1,8 @@
+import { AlignLeft, CheckSquare, Clock, Flag, MessageSquare, Paperclip, Pencil } from 'lucide-react';
 import { dueStatus, formatDate } from '../lib/filters';
 import type { Card, Label, Person } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
-import { AvatarStack } from './ui';
+import { Avatar } from './ui';
 
 export function CardItem({
   card,
@@ -10,6 +11,7 @@ export function CardItem({
   dragging,
   draggable,
   onOpen,
+  onToggleComplete,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -20,6 +22,7 @@ export function CardItem({
   dragging: boolean;
   draggable: boolean;
   onOpen: () => void;
+  onToggleComplete?: () => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -29,10 +32,16 @@ export function CardItem({
   const status = dueStatus(card);
   const prio = PRIORITIES.find((p) => p.value === card.priority);
   const cardLabels = card.labelIds.map((id) => labels.get(id)).filter((l): l is Label => !!l);
+  const avatars = [
+    ...card.assignees.map((id) => ({ key: id, id, name: people.get(id)?.name ?? '?', guest: false })),
+    ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true })),
+  ];
+  const hasBadges =
+    card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length;
 
   return (
     <div
-      className={`card ${dragging ? 'dragging' : ''}`}
+      className={`card ${dragging ? 'dragging' : ''} ${card.completed ? 'completed' : ''}`}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -51,29 +60,85 @@ export function CardItem({
           ))}
         </div>
       )}
-      <div className="card-title">{card.title}</div>
-      <div className="card-badges">
-        {card.priority !== 'none' && prio && (
-          <span className="badge prio" style={{ color: prio.color }} title={`Priority: ${prio.label}`}>
-            ⚑ {prio.label}
-          </span>
+
+      <div className="card-title-row">
+        {onToggleComplete && (
+          <button
+            className={`complete-circle ${card.completed ? 'on' : ''}`}
+            title={card.completed ? 'Mark incomplete' : 'Mark complete'}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleComplete();
+            }}
+          >
+            {card.completed && (
+              <svg viewBox="0 0 16 16" width="10" height="10" aria-hidden>
+                <path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            )}
+          </button>
         )}
-        {card.due && (
-          <span className={`badge due-${status}`} title={card.dueDone ? 'Complete' : 'Due date'}>
-            {card.dueDone ? '✓' : '🕒'} {formatDate(card.due)}
-          </span>
-        )}
-        {card.description && <span className="badge" title="Has description">≡</span>}
-        {card.comments.length > 0 && <span className="badge" title="Comments">💬 {card.comments.length}</span>}
-        {card.attachments.length > 0 && <span className="badge" title="Attachments">📎 {card.attachments.length}</span>}
-        {total > 0 && (
-          <span className={`badge ${done === total ? 'complete' : ''}`} title="Checklist">
-            ☑ {done}/{total}
-          </span>
-        )}
-        <span className="badge-spacer" />
-        <AvatarStack ids={card.assignees} people={people} size={22} />
+        <div className="card-title">{card.title}</div>
       </div>
+
+      <button
+        className="card-edit"
+        title="Open card"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpen();
+        }}
+      >
+        <Pencil size={14} />
+      </button>
+
+      {hasBadges ? (
+        <div className="card-badges">
+          {card.priority !== 'none' && prio && (
+            <span className="badge prio" style={{ color: prio.color }} title={`Priority: ${prio.label}`}>
+              <Flag size={13} /> {prio.label}
+            </span>
+          )}
+          {card.due && (
+            <span className={`badge due-${status}`} title={card.dueDone ? 'Complete' : 'Due date'}>
+              <Clock size={13} /> {formatDate(card.due)}
+            </span>
+          )}
+          {card.description && (
+            <span className="badge" title="This card has a description">
+              <AlignLeft size={14} />
+            </span>
+          )}
+          {card.comments.length > 0 && (
+            <span className="badge" title="Comments">
+              <MessageSquare size={13} /> {card.comments.length}
+            </span>
+          )}
+          {card.attachments.length > 0 && (
+            <span className="badge" title="Attachments">
+              <Paperclip size={13} /> {card.attachments.length}
+            </span>
+          )}
+          {total > 0 && (
+            <span className={`badge ${done === total ? 'complete' : ''}`} title="Checklist">
+              <CheckSquare size={13} /> {done}/{total}
+            </span>
+          )}
+          <span className="badge-spacer" />
+          {avatars.length > 0 && (
+            <span className="avatar-stack">
+              {avatars.slice(0, 3).map((a) => (
+                <Avatar key={a.key} id={a.id} name={a.name} size={24} title={a.guest ? `${a.name} (imported, not linked)` : a.name} />
+              ))}
+              {avatars.length > 3 && (
+                <span className="avatar more" style={{ width: 24, height: 24, fontSize: 10 }}>
+                  +{avatars.length - 3}
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

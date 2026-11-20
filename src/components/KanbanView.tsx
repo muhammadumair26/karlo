@@ -1,3 +1,4 @@
+import { ChevronsLeftRight, ChevronsRightLeft, MoreHorizontal } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { BoardActionBody } from '../lib/board';
 import { uid } from '../lib/board';
@@ -10,7 +11,16 @@ import { Menu } from './ui';
 
 type Drag = { kind: 'card'; id: string } | { kind: 'list'; id: string } | null;
 
+function loadCollapsed(boardId: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(`karlo-collapsed:${boardId}`) ?? '[]');
+  } catch {
+    return [];
+  }
+}
+
 export function KanbanView({
+  boardId,
   data,
   dispatch,
   editable,
@@ -19,6 +29,7 @@ export function KanbanView({
   people,
   onOpenCard,
 }: {
+  boardId: string;
   data: BoardData;
   dispatch: (a: BoardActionBody) => void;
   editable: boolean;
@@ -32,6 +43,17 @@ export function KanbanView({
   const [listTarget, setListTarget] = useState<number | null>(null);
   const [editingList, setEditingList] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  // Collapsed lists are a per-person view preference, so they live in this browser only.
+  const [collapsed, setCollapsed] = useState<string[]>(() => loadCollapsed(boardId));
+  const toggleCollapsed = (id: string) => {
+    const next = collapsed.includes(id) ? collapsed.filter((x) => x !== id) : [...collapsed, id];
+    setCollapsed(next);
+    try {
+      localStorage.setItem(`karlo-collapsed:${boardId}`, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
   const onEditingChange = useCallback((e: boolean) => setEditingList(e), []);
   const labels = new Map<string, Label>(data.labels.map((l) => [l.id, l]));
   const filtering = hasFilters(filters);
@@ -63,6 +85,26 @@ export function KanbanView({
         const target = cardTarget?.listId === list.id ? cardTarget.index : null;
         const placeholderAtEnd = target !== null && !visible.some((c) => list.cardIds.indexOf(c.id) === target);
         const activeCount = list.cardIds.filter((id) => data.cards[id] && !data.cards[id].archived).length;
+
+        if (collapsed.includes(list.id)) {
+          return (
+            <div
+              key={list.id}
+              className="list collapsed"
+              onClick={() => toggleCollapsed(list.id)}
+              title="Expand list"
+              onDragOver={(e) => {
+                if (drag?.kind !== 'card') return;
+                e.preventDefault();
+                setCardTarget({ listId: list.id, index: list.cardIds.length });
+              }}
+            >
+              <ChevronsLeftRight size={16} />
+              <span className="collapsed-title">{list.title}</span>
+              <span className="list-count">{activeCount}</span>
+            </div>
+          );
+        }
 
         return (
           <div
@@ -102,10 +144,13 @@ export function KanbanView({
                 <span className="list-title">{list.title}</span>
               )}
               <span className="list-count">{filtering ? `${visible.length}/${activeCount}` : activeCount}</span>
+              <button className="icon-btn list-icon" title="Collapse list" onClick={() => toggleCollapsed(list.id)}>
+                <ChevronsRightLeft size={16} />
+              </button>
               {editable && (
                 <span className="menu-anchor">
-                  <button className="icon-btn" title="List actions" onClick={() => setMenuFor(menuFor === list.id ? null : list.id)}>
-                    ⋯
+                  <button className="icon-btn list-icon" title="List actions" onClick={() => setMenuFor(menuFor === list.id ? null : list.id)}>
+                    <MoreHorizontal size={16} />
                   </button>
                   <Menu open={menuFor === list.id} onClose={() => setMenuFor(null)}>
                     <button
@@ -154,6 +199,17 @@ export function KanbanView({
                       draggable={editable}
                       dragging={drag?.kind === 'card' && drag.id === card.id}
                       onOpen={() => onOpenCard(card.id)}
+                      onToggleComplete={
+                        editable
+                          ? () =>
+                              dispatch({
+                                type: 'UPDATE_CARD',
+                                cardId: card.id,
+                                patch: { completed: !card.completed },
+                                note: card.completed ? 'marked {card} incomplete' : 'completed {card}',
+                              })
+                          : undefined
+                      }
                       onDragStart={(e) => {
                         e.stopPropagation();
                         e.dataTransfer.effectAllowed = 'move';

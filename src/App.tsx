@@ -73,6 +73,22 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [importOpen, setImportOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
+  const [starred, setStarred] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(`karlo-starred:${userId}`) ?? '[]');
+    } catch {
+      return [];
+    }
+  });
+  const toggleStar = (id: string) => {
+    const next = starred.includes(id) ? starred.filter((x) => x !== id) : [...starred, id];
+    setStarred(next);
+    try {
+      localStorage.setItem(`karlo-starred:${userId}`, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  };
   const reloadTimer = useRef<number | undefined>(undefined);
   const boardsRef = useRef<BoardMeta[]>([]);
   boardsRef.current = boards;
@@ -236,6 +252,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
             workspaces={workspaces}
             boards={boards}
             activeBoardId={activeId}
+            starred={starred}
             onSelect={select}
             onNewBoard={newBoard}
             onNewWorkspace={newWorkspace}
@@ -250,6 +267,8 @@ function Home({ userId, email }: { userId: string; email: string }) {
               key={active.id}
               meta={active}
               me={me}
+              starred={starred.includes(active.id)}
+              onToggleStar={() => toggleStar(active.id)}
               onMetaChanged={reload}
               onBoardGone={async () => {
                 select(null);

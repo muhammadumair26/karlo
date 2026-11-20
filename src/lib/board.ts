@@ -17,6 +17,7 @@ export function emptyBoard(): BoardData {
       { id: uid(), name: 'Urgent', color: 'orange' },
     ],
     activity: [],
+    background: null,
   };
 }
 
@@ -37,6 +38,8 @@ export function newCard(id: string, title: string, by: string, at: number, extra
     description: '',
     labelIds: [],
     assignees: [],
+    guests: [],
+    completed: false,
     priority: 'none',
     start: null,
     due: null,
@@ -52,6 +55,9 @@ export function newCard(id: string, title: string, by: string, at: number, extra
 }
 
 /** Fill in defaults so older or imported data never crashes the UI. */
+// Older imports wrote people into the description; move them to `guests`.
+const IMPORT_FOOTER = /\n*— Imported from (?:Trello|ClickUp|CSV)\. Assigned to: (.+)$/;
+
 export function normalize(raw: unknown): BoardData {
   const d = (raw && typeof raw === 'object' ? raw : {}) as Partial<BoardData>;
   const lists: Record<string, List> = {};
@@ -60,15 +66,24 @@ export function normalize(raw: unknown): BoardData {
   }
   const cards: Record<string, Card> = {};
   for (const [id, c] of Object.entries(d.cards ?? {})) {
+    let description = c.description ?? '';
+    let guests = c.guests ?? [];
+    const m = description.match(IMPORT_FOOTER);
+    if (m) {
+      description = description.slice(0, m.index).trimEnd();
+      guests = [...new Set([...guests, ...m[1].split(',').map((x) => x.trim()).filter(Boolean)])];
+    }
     cards[id] = newCard(id, c.title ?? 'Untitled', c.createdBy ?? '', c.createdAt ?? Date.now(), {
       ...c,
+      guests,
+      completed: !!c.completed,
       labelIds: c.labelIds ?? [],
       assignees: c.assignees ?? [],
       checklist: c.checklist ?? [],
       comments: c.comments ?? [],
       attachments: c.attachments ?? [],
       priority: c.priority ?? 'none',
-      description: c.description ?? '',
+      description,
       archived: !!c.archived,
       dueDone: !!c.dueDone,
       start: c.start ?? null,
@@ -77,7 +92,7 @@ export function normalize(raw: unknown): BoardData {
   }
   const listOrder = (d.listOrder ?? Object.keys(lists)).filter((id) => lists[id]);
   for (const l of Object.values(lists)) l.cardIds = l.cardIds.filter((id) => cards[id]);
-  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [] };
+  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null };
 }
 
 // ------------------------------------------------------------------ actions
@@ -100,7 +115,9 @@ export type BoardActionBody =
   | { type: 'DELETE_CARD'; cardId: string }
   | { type: 'ADD_COMMENT'; cardId: string; comment: Comment }
   | { type: 'DELETE_COMMENT'; cardId: string; commentId: string }
-  | { type: 'SET_LABELS'; labels: Label[] };
+  | { type: 'SET_LABELS'; labels: Label[] }
+  | { type: 'SET_BACKGROUND'; url: string | null }
+  | { type: 'MAP_GUEST'; name: string; userId: string | null };
 
 export type BoardAction = BoardActionBody & { meta: ActionMeta };
 
@@ -225,6 +242,23 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
       const c = d.cards[a.cardId];
       if (!c) return d;
       return { ...d, cards: { ...d.cards, [c.id]: { ...c, comments: c.comments.filter((x) => x.id !== a.commentId) } } };
+    }
+    case 'SET_BACKGROUND':
+      return { ...d, background: a.url, activity: log(d, a, a.url ? 'changed the board background' : 'removed the board background') };
+    case 'MAP_GUEST': {
+      // Replace an imported person's name with a real teammate on every card (or just drop the name).
+      const cards: Record<string, Card> = {};
+      let n = 0;
+      for (const [id, c] of Object.entries(d.cards)) {
+        if (!c.guests.includes(a.name)) {
+          cards[id] = c;
+          continue;
+        }
+        n++;
+        const assignees = a.userId && !c.assignees.includes(a.userId) ? [...c.assignees, a.userId] : c.assignees;
+        cards[id] = { ...c, guests: c.guests.filter((g) => g !== a.name), assignees };
+      }
+      return { ...d, cards, activity: log(d, a, `${a.userId ? 'linked' : 'removed'} imported person “${a.name}” on ${n} card(s)`) };
     }
     case 'SET_LABELS': {
       const ids = new Set(a.labels.map((l) => l.id));

@@ -67,6 +67,8 @@ export interface Card {
   description: string;
   labelIds: string[];
   assignees: string[]; // user ids
+  guests: string[]; // names of imported people not (yet) linked to a Karlo account
+  completed: boolean;
   priority: Priority;
   start: string | null; // yyyy-mm-dd
   due: string | null; // yyyy-mm-dd
@@ -101,6 +103,7 @@ export interface BoardData {
   cards: Record<string, Card>;
   labels: Label[];
   activity: Activity[];
+  background: string | null; // image URL
 }
 
 export interface Workspace {
@@ -133,3 +136,15 @@ export interface Me {
 }
 
 export const BOARD_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#475569'];
+
+export const BACKGROUND_PHOTOS = [
+  'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df',
+  'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470',
+  'https://images.unsplash.com/photo-1519681393784-d120267933ba',
+  'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05',
+  'https://images.unsplash.com/photo-1493246507139-91e8fad9978e',
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e',
+  'https://images.unsplash.com/photo-1444703686981-a3abbc4d4fe3',
+];
+export const photoUrl = (u: string, w = 1920) => (u.includes('images.unsplash.com') ? `${u}?auto=format&fit=crop&w=${w}&q=75` : u);

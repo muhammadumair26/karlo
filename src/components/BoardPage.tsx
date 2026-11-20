@@ -1,10 +1,11 @@
+import { Calendar, Filter, Kanban, MoreHorizontal, Star, Table2, UserPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '../lib/api';
 import type { Filters } from '../lib/filters';
 import { hasFilters, NO_FILTERS } from '../lib/filters';
 import { boardToCSV, karloExport } from '../lib/importers';
 import type { BoardMeta, Me, Person } from '../lib/types';
-import { BOARD_COLORS, canAdmin, canEdit, PRIORITIES, ROLE_INFO } from '../lib/types';
+import { BACKGROUND_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
 import { useBoardSync, type SyncStatus } from '../lib/useBoardSync';
 import { CalendarView } from './CalendarView';
 import { CardModal } from './CardModal';
@@ -13,7 +14,7 @@ import { KanbanView } from './KanbanView';
 import { LabelsEditor } from './LabelsEditor';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
-import { AvatarStack, download, Menu, Modal, timeAgo } from './ui';
+import { Avatar, AvatarStack, download, Menu, Modal, timeAgo } from './ui';
 
 type View = 'board' | 'table' | 'calendar';
 
@@ -30,11 +31,15 @@ const VIEW_KEY = 'karlo-view';
 export function BoardPage({
   meta,
   me,
+  starred,
+  onToggleStar,
   onBoardGone,
   onMetaChanged,
 }: {
   meta: BoardMeta;
   me: Me;
+  starred: boolean;
+  onToggleStar: () => void;
   onBoardGone: () => void;
   onMetaChanged: () => void;
 }) {
@@ -49,7 +54,8 @@ export function BoardPage({
       return 'board';
     }
   });
-  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity'>(null);
+  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests'>(null);
+  const [customBg, setCustomBg] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const editable = canEdit(meta.role);
@@ -94,13 +100,18 @@ export function BoardPage({
   const archivedCards = data ? Object.values(data.cards).filter((c) => c.archived) : [];
   const archivedLists = data ? data.listOrder.map((id) => data.lists[id]).filter((l) => l.archived) : [];
 
+  const guestNames = data ? [...new Set(Object.values(data.cards).flatMap((c) => c.guests))].sort() : [];
+  const guestCount = (name: string) => (data ? Object.values(data.cards).filter((c) => c.guests.includes(name)).length : 0);
+  const background = data?.background ?? null;
+
   const exportJSON = () =>
     data && download(`${meta.title}.karlo.json`, karloExport([{ title: meta.title, color: meta.color, data }]));
   const exportCSV = () => data && download(`${meta.title}.csv`, boardToCSV(data, peopleMap), 'text/csv');
 
   return (
     <>
-      <div className="board-header">
+      {background && <div className="board-bg" style={{ backgroundImage: `url("${photoUrl(background)}")` }} />}
+      <div className={`board-header ${background ? 'on-photo' : ''}`}>
         {editable ? (
           <EditableText
             className="board-title"
@@ -113,18 +124,22 @@ export function BoardPage({
         ) : (
           <span className="board-title">{meta.title}</span>
         )}
+        <button className={`icon-btn light star ${starred ? 'on' : ''}`} title={starred ? 'Unstar board' : 'Star board'} onClick={onToggleStar}>
+          <Star size={17} fill={starred ? 'currentColor' : 'none'} />
+        </button>
         {meta.role !== 'member' && <span className={`role-pill role-${meta.role} on-dark`}>{ROLE_INFO[meta.role].label}</span>}
 
         <div className="seg on-dark">
           {(['board', 'table', 'calendar'] as View[]).map((v) => (
             <button key={v} className={view === v ? 'on' : ''} onClick={() => setViewSaved(v)}>
-              {v === 'board' ? '▦ Board' : v === 'table' ? '☰ Table' : '📅 Calendar'}
+              {v === 'board' ? <Kanban size={15} /> : v === 'table' ? <Table2 size={15} /> : <Calendar size={15} />}
+              {v === 'board' ? 'Board' : v === 'table' ? 'Table' : 'Calendar'}
             </button>
           ))}
         </div>
 
         <button className={`btn translucent ${hasFilters(filters) ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)}>
-          ⚲ Filter{hasFilters(filters) ? ' •' : ''}
+          <Filter size={15} /> Filter{hasFilters(filters) ? ' •' : ''}
         </button>
 
         <span className="header-spacer" />
@@ -133,11 +148,11 @@ export function BoardPage({
           <AvatarStack ids={people.map((p) => p.user_id)} people={peopleMap} max={4} size={28} />
         </button>
         <button className="btn translucent" onClick={() => setPanel('share')}>
-          👤+ Share
+          <UserPlus size={16} /> Share
         </button>
         <span className="menu-anchor">
           <button className="btn translucent" onClick={() => setMenuOpen(!menuOpen)} aria-label="Board menu">
-            ⋯
+            <MoreHorizontal size={18} />
           </button>
           <Menu open={menuOpen} onClose={() => setMenuOpen(false)}>
             {editable && (
@@ -156,7 +171,11 @@ export function BoardPage({
                 ))}
               </div>
             )}
+            {editable && <button onClick={() => (setMenuOpen(false), setPanel('background'))}>🖼 Change background</button>}
             {editable && <button onClick={() => (setMenuOpen(false), setPanel('labels'))}>🏷 Labels</button>}
+            {editable && guestNames.length > 0 && (
+              <button onClick={() => (setMenuOpen(false), setPanel('guests'))}>🔗 Link imported people ({guestNames.length})</button>
+            )}
             <button onClick={() => (setMenuOpen(false), setPanel('activity'))}>🕘 Activity</button>
             <button onClick={() => (setMenuOpen(false), setPanel('archive'))}>
               🗄 Archived items ({archivedCards.length + archivedLists.length})
@@ -247,7 +266,7 @@ export function BoardPage({
           <p>Loading board…</p>
         </div>
       ) : view === 'board' ? (
-        <KanbanView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+        <KanbanView boardId={meta.id} data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : view === 'table' ? (
         <TableView data={data} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : (
@@ -273,6 +292,98 @@ export function BoardPage({
             Invite people to just this board. Members of the workspace already have access through their workspace role.
           </p>
           <MembersPanel target={{ boardId: meta.id }} me={me} canManage={admin} onChanged={loadPeople} />
+        </Modal>
+      )}
+
+      {panel === 'background' && data && (
+        <Modal title="Board background" onClose={closePanel}>
+          <h4>Photos</h4>
+          <div className="bg-grid">
+            {BACKGROUND_PHOTOS.map((u) => (
+              <button
+                key={u}
+                className={`bg-thumb ${background === u ? 'on' : ''}`}
+                style={{ backgroundImage: `url("${photoUrl(u, 320)}")` }}
+                onClick={() => dispatch({ type: 'SET_BACKGROUND', url: u })}
+                aria-label="Use this photo"
+              />
+            ))}
+          </div>
+          <h4>Colors</h4>
+          <div className="bg-grid colors">
+            {BOARD_COLORS.map((c) => (
+              <button
+                key={c}
+                className={`bg-thumb ${!background && meta.color === c ? 'on' : ''}`}
+                style={{ background: c }}
+                aria-label={`Color ${c}`}
+                onClick={async () => {
+                  if (background) dispatch({ type: 'SET_BACKGROUND', url: null });
+                  await api.updateBoardMeta(meta.id, { color: c });
+                  onMetaChanged();
+                }}
+              />
+            ))}
+          </div>
+          <h4>Your own image</h4>
+          <form
+            className="checklist-add"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const u = customBg.trim();
+              if (/^https:\/\//i.test(u)) {
+                dispatch({ type: 'SET_BACKGROUND', url: u });
+                setCustomBg('');
+              }
+            }}
+          >
+            <input placeholder="Paste an image link (https://…)" value={customBg} onChange={(e) => setCustomBg(e.target.value)} />
+            <button className="btn">Use</button>
+          </form>
+          {background && (
+            <button className="btn ghost" onClick={() => dispatch({ type: 'SET_BACKGROUND', url: null })}>
+              Remove photo
+            </button>
+          )}
+          <p className="muted">Photos from Unsplash. The background is shared with everyone on this board.</p>
+        </Modal>
+      )}
+
+      {panel === 'guests' && data && (
+        <Modal title="Link imported people" onClose={closePanel}>
+          <p className="muted">
+            These names came from Trello/ClickUp. Link each one to a Karlo teammate to turn them into real assignees on every card,
+            or remove the name. Invite people first (Share) if they're not in the list.
+          </p>
+          <ul className="people">
+            {guestNames.map((name) => (
+              <li key={name}>
+                <Avatar id={'guest:' + name} name={name} size={32} />
+                <div className="person-info">
+                  <div className="person-name">{name}</div>
+                  <div className="muted">on {guestCount(name)} card(s)</div>
+                </div>
+                <select
+                  className="role-select"
+                  value=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    dispatch({ type: 'MAP_GUEST', name, userId: v === '__remove' ? null : v });
+                  }}
+                >
+                  <option value="">Link to…</option>
+                  {people.map((p) => (
+                    <option key={p.user_id} value={p.user_id}>
+                      {p.name} ({p.email})
+                    </option>
+                  ))}
+                  <option value="__remove">Remove this name</option>
+                </select>
+              </li>
+            ))}
+            {guestNames.length === 0 && <li className="muted">All imported people are linked. 🎉</li>}
+          </ul>
         </Modal>
       )}
 
