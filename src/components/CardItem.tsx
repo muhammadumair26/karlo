@@ -1,4 +1,4 @@
-import { AlignLeft, CheckSquare, Clock, Flag, MessageSquare, Paperclip, Pencil } from 'lucide-react';
+import { AlignLeft, CheckSquare, Clock, Flag, MapPin, MessageSquare, Paperclip, Pencil } from 'lucide-react';
 import { dueStatus, formatDate } from '../lib/filters';
 import type { Card, Label, Person } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
@@ -39,7 +39,7 @@ export function CardItem({
     ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true, src: null })),
   ];
   const hasBadges =
-    card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length;
+    card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length || card.location;
 
   return (
     <div
@@ -122,6 +122,11 @@ export function CardItem({
           {card.attachments.length > 0 && (
             <span className="badge" title="Attachments">
               <Paperclip size={13} /> {card.attachments.length}
+            </span>
+          )}
+          {card.location && (
+            <span className="badge" title={card.location.name}>
+              <MapPin size={13} />
             </span>
           )}
           {total > 0 && (

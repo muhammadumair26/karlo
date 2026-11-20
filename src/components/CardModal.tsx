@@ -10,11 +10,13 @@ import {
   ImageIcon,
   Link2,
   Loader2,
+  MapPin,
   MessageSquare,
   MoreHorizontal,
   SquareKanban,
   Upload,
   Paperclip,
+  Pencil,
   Plus,
   Tag,
   Trash2,
@@ -25,16 +27,17 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import type { BoardActionBody } from '../lib/board';
 import { cardListId, uid } from '../lib/board';
 import { dueStatus, formatDate } from '../lib/filters';
-import type { Attachment, BoardData, Card, Me, Person, Priority } from '../lib/types';
+import type { Attachment, BoardData, Card, CardLocation, Me, Person, Priority } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
 import { extOf, formatBytes, isImage, fileUrl, MAX_FILE_BYTES, pathsOf, uploadAttachment, useSignedUrls } from '../lib/files';
+import { osmLink, searchPlaces, shortPlace } from '../lib/geocode';
 import { handleOf } from '../lib/notify';
 import { cardLink, parseCardLink, recentCards, rememberCard } from '../lib/recent';
 import { LabelsEditor } from './LabelsEditor';
 import { MentionInput } from './MentionInput';
 import { Avatar, Menu, Modal, timeAgo } from './ui';
 
-type Pop = null | 'add' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority';
+type Pop = null | 'add' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority' | 'location';
 
 /** Renders text with @mentions highlighted and bare links clickable. */
 function RichText({ text }: { text: string }) {
@@ -103,6 +106,10 @@ export function CardModal({
   const [menu, setMenu] = useState(false);
   const [newItem, setNewItem] = useState('');
   const [link, setLink] = useState({ name: '', url: '' });
+  const [placeQ, setPlaceQ] = useState('');
+  const [places, setPlaces] = useState<CardLocation[] | null>(null);
+  const [placeBusy, setPlaceBusy] = useState(false);
+  const [placeErr, setPlaceErr] = useState<string | null>(null);
   const [uploads, setUploads] = useState<{ id: string; name: string; error?: string }[]>([]);
   const [dragging, setDragging] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -338,7 +345,8 @@ export function CardModal({
                 ['checklist', CheckSquare, 'Checklist', 'Add subtasks'],
                 ['members', User, 'Members', 'Assign members'],
                 ['priority', Flag, 'Priority', 'Urgent, high, medium or low'],
-                ['attachment', Paperclip, 'Attachment', 'Add links to files, docs and designs'],
+                ['attachment', Paperclip, 'Attachment', 'Upload files or add links'],
+                ['location', MapPin, 'Location', 'View this card on a map'],
               ] as const
             ).map(([key, Icon, label, hint]) => (
               <button key={key} className="add-option" onClick={() => (key === 'checklist' ? openChecklist() : setPop(key))}>
@@ -423,6 +431,61 @@ export function CardModal({
               </button>
             ))}
             {people.length === 0 && <p className="muted">Invite people with Share first.</p>}
+          </Popover>
+        );
+      case 'location':
+        return (
+          <Popover title="Location" onClose={() => setPop(null)}>
+            <form
+              className="pop-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const q = placeQ.trim();
+                if (!q) return;
+                setPlaceBusy(true);
+                setPlaceErr(null);
+                try {
+                  setPlaces(await searchPlaces(q));
+                } catch (err) {
+                  setPlaceErr((err as Error).message);
+                }
+                setPlaceBusy(false);
+              }}
+            >
+              <label className="pop-field">
+                Search for a place or address
+                <input autoFocus placeholder="e.g. Rahim Yar Khan, Pakistan" value={placeQ} onChange={(e) => setPlaceQ(e.target.value)} />
+              </label>
+              <button className="btn primary full" disabled={placeBusy || !placeQ.trim()}>
+                {placeBusy ? 'Searching…' : 'Search'}
+              </button>
+            </form>
+            {placeErr && <div className="auth-error">{placeErr}</div>}
+            {places && places.length === 0 && <p className="muted">No places found. Try a city or a fuller address.</p>}
+            {places?.map((pl) => (
+              <button
+                key={`${pl.lat},${pl.lng}`}
+                className="member-option"
+                onClick={() => {
+                  update({ location: pl }, `set the location of {card} to ${shortPlace(pl.name)}`);
+                  setPop(null);
+                  setPlaces(null);
+                  setPlaceQ('');
+                }}
+              >
+                <MapPin size={16} />
+                <span className="member-option-text">
+                  {shortPlace(pl.name)}
+                  <span className="muted">{pl.name}</span>
+                </span>
+              </button>
+            ))}
+            {card.location && (
+              <button className="btn small full" onClick={() => (update({ location: null }), setPop(null))}>
+                Remove location
+              </button>
+            )}
+            <p className="muted small-hint">Place search by OpenStreetMap.</p>
           </Popover>
         );
       case 'priority':
@@ -685,7 +748,7 @@ export function CardModal({
           )}
 
           {/* chips row: members / labels / dates / priority */}
-          {(showMembers || cardLabels.length > 0 || showDates || card.priority !== 'none') && (
+          {(showMembers || cardLabels.length > 0 || showDates || card.priority !== 'none' || card.location) && (
             <div className="cw-chips">
               {showMembers && (
                 <div className="cw-chip-group">
@@ -746,6 +809,21 @@ export function CardModal({
                       {status === 'soon' && <span className="date-tag soon">Due soon</span>}
                       <ChevronDown size={14} />
                     </button>
+                  </div>
+                </div>
+              )}
+              {card.location && (
+                <div className="cw-chip-group">
+                  <h5>Location</h5>
+                  <div className="cw-chip-row">
+                    <a className="date-chip" href={osmLink(card.location)} target="_blank" rel="noreferrer noopener" title={card.location.name}>
+                      <MapPin size={14} /> {shortPlace(card.location.name)}
+                    </a>
+                    {editable && (
+                      <button className="round-add square" onMouseDown={(e) => e.stopPropagation()} onClick={() => toggle('location')} aria-label="Change location">
+                        <Pencil size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

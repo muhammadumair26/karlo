@@ -3,6 +3,10 @@ import {
   Calendar,
   Download,
   FolderPlus,
+  Gauge,
+  GanttChart,
+  MapPin,
+  ChevronDown,
   Filter,
   History,
   Image,
@@ -30,6 +34,9 @@ import type { BoardMeta, Me, Person } from '../lib/types';
 import { BACKGROUND_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
 import { useBoardSync, type SyncStatus } from '../lib/useBoardSync';
 import { CalendarView } from './CalendarView';
+import { DashboardView } from './DashboardView';
+import { MapView } from './MapView';
+import { TimelineView } from './TimelineView';
 import { CardModal } from './CardModal';
 import { EditableText } from './Editable';
 import { KanbanView } from './KanbanView';
@@ -38,7 +45,16 @@ import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
 import { Avatar, AvatarStack, download, Menu, Modal, timeAgo } from './ui';
 
-type View = 'board' | 'table' | 'calendar';
+type View = 'board' | 'table' | 'calendar' | 'dashboard' | 'timeline' | 'map';
+
+const VIEWS: { id: View; label: string; Icon: typeof Kanban }[] = [
+  { id: 'board', label: 'Board', Icon: Kanban },
+  { id: 'table', label: 'Table', Icon: Table2 },
+  { id: 'calendar', label: 'Calendar', Icon: Calendar },
+  { id: 'dashboard', label: 'Dashboard', Icon: Gauge },
+  { id: 'timeline', label: 'Timeline', Icon: GanttChart },
+  { id: 'map', label: 'Map', Icon: MapPin },
+];
 
 const STATUS_TEXT: Record<SyncStatus, string> = {
   loading: 'Loading…',
@@ -120,6 +136,7 @@ export function BoardPage({
   const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests'>(null);
   const [customBg, setCustomBg] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [viewsOpen, setViewsOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const editable = canEdit(meta.role);
   const admin = canAdmin(meta.role);
@@ -194,7 +211,6 @@ export function BoardPage({
           document.body,
         )}
       <div className={`board-header ${background ? 'on-photo' : ''}`}>
-        {switcher}
         {editable ? (
           <EditableText
             className="board-title"
@@ -212,14 +228,24 @@ export function BoardPage({
         </button>
         {meta.role !== 'member' && <span className={`role-pill role-${meta.role} on-dark`}>{ROLE_INFO[meta.role].label}</span>}
 
-        <div className="seg on-dark">
-          {(['board', 'table', 'calendar'] as View[]).map((v) => (
-            <button key={v} className={view === v ? 'on' : ''} onClick={() => setViewSaved(v)}>
-              {v === 'board' ? <Kanban size={15} /> : v === 'table' ? <Table2 size={15} /> : <Calendar size={15} />}
-              {v === 'board' ? 'Board' : v === 'table' ? 'Table' : 'Calendar'}
-            </button>
-          ))}
-        </div>
+        <span className="menu-anchor">
+          {(() => {
+            const cur = VIEWS.find((v) => v.id === view) ?? VIEWS[0];
+            return (
+              <button className="btn translucent views-btn" onClick={() => setViewsOpen(!viewsOpen)} title="Views">
+                <cur.Icon size={16} /> {cur.label} <ChevronDown size={14} />
+              </button>
+            );
+          })()}
+          <Menu open={viewsOpen} onClose={() => setViewsOpen(false)} align="left">
+            <div className="menu-title">Views</div>
+            {VIEWS.map((v) => (
+              <button key={v.id} className={view === v.id ? 'menu-on' : ''} onClick={() => (setViewsOpen(false), setViewSaved(v.id))}>
+                <v.Icon size={17} /> {v.label}
+              </button>
+            ))}
+          </Menu>
+        </span>
 
         <button className={`btn translucent ${hasFilters(filters) ? 'active' : ''}`} onClick={() => setShowFilters(!showFilters)}>
           <Filter size={15} /> Filter{hasFilters(filters) ? ' •' : ''}
@@ -230,6 +256,7 @@ export function BoardPage({
         <button className="people-btn" onClick={() => setPanel('share')} title="Members">
           <AvatarStack ids={people.map((p) => p.user_id)} people={peopleMap} max={4} size={28} />
         </button>
+        {switcher}
         <button className="btn translucent" onClick={() => setPanel('share')}>
           <UserPlus size={16} /> Share
         </button>
@@ -362,8 +389,23 @@ export function BoardPage({
         <KanbanView boardId={meta.id} data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : view === 'table' ? (
         <TableView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
-      ) : (
+      ) : view === 'calendar' ? (
         <CalendarView data={data} filters={filters} meId={me.id} onOpenCard={setOpenCardId} />
+      ) : view === 'dashboard' ? (
+        <DashboardView
+          data={data}
+          filters={filters}
+          meId={me.id}
+          people={peopleMap}
+          onFilter={(patch) => {
+            setFilters({ ...filters, ...patch });
+            setShowFilters(true);
+          }}
+        />
+      ) : view === 'timeline' ? (
+        <TimelineView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+      ) : (
+        <MapView data={data} filters={filters} meId={me.id} onOpenCard={setOpenCardId} />
       )}
 
       {openCard && data && (
