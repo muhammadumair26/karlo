@@ -15,6 +15,7 @@ import { ReminderSettingsModal } from './components/ReminderSettings';
 import { SecondStepScreen, SecurityModal } from './components/SecuritySettings';
 import { needsSecondStep } from './lib/security';
 import { WorkspaceModal } from './components/WorkspaceModal';
+import { AdminPanel } from './components/AdminPanel';
 import * as api from './lib/api';
 import { starterBoard, uid } from './lib/board';
 import { karloExport } from './lib/importers';
@@ -103,6 +104,12 @@ function Home({ userId, email }: { userId: string; email: string }) {
     if (me?.id) void enableNativePush().catch((e) => console.warn('Karlo: phone notifications', e));
   }, [me?.id]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  // The people renting Karlo out to clients get an admin panel.
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  useEffect(() => {
+    void api.isPlatformAdmin().then(setIsAdmin);
+  }, []);
   const [boards, setBoards] = useState<BoardMeta[]>([]);
   const [activeId, setActiveId] = useState<string | null>(() => {
     try {
@@ -380,6 +387,11 @@ function Home({ userId, email }: { userId: string; email: string }) {
                 <div className="muted">{me.email}</div>
               </div>
             </div>
+            {isAdmin && (
+              <button className="menu-admin" onClick={() => (setProfileOpen(false), setSidebarOpen(false), setAdminOpen(true))}>
+                Admin panel — clients
+              </button>
+            )}
             <button onClick={() => (setProfileOpen(false), setProfileModal(true))}>Edit profile & password</button>
             <button onClick={() => (setProfileOpen(false), setCalSync(true))}>Sync with Google Calendar</button>
             <button onClick={() => (setProfileOpen(false), setReminders(true))}>Reminders & daily digest</button>
@@ -415,7 +427,9 @@ function Home({ userId, email }: { userId: string; email: string }) {
           />
         )}
         <main className="main">
-          {active ? (
+          {adminOpen ? (
+            <AdminPanel onClose={() => setAdminOpen(false)} />
+          ) : active ? (
             <BoardPage
               key={active.id}
               meta={active}

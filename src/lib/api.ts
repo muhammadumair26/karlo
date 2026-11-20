@@ -271,3 +271,61 @@ async function loadLegacyState(userId: string): Promise<{ title: string; color: 
       return { title: b.title, color: b.color, data };
     });
 }
+
+// ---------------------------------------------------------------- clients (platform admin)
+export interface ClientRow {
+  id: string;
+  name: string;
+  plan: import('./plans').PlanId;
+  status: 'active' | 'suspended';
+  trial_ends_at: string | null;
+  paid_until: string | null;
+  seats: number | null;
+  admin_notes: string;
+  created_at: string;
+  owner_name: string | null;
+  owner_email: string | null;
+  pending_owner: string | null;
+  people: number;
+  boards: number;
+  storage_bytes: number;
+  last_active: string | null;
+}
+
+export async function isPlatformAdmin(): Promise<boolean> {
+  const { data, error } = await sb().rpc('is_platform_admin');
+  if (error) return false; // older database without the clients feature
+  return data === true;
+}
+
+export async function listClients(): Promise<ClientRow[]> {
+  const { data, error } = await sb().rpc('admin_clients');
+  fail(error);
+  return (data ?? []) as ClientRow[];
+}
+
+export async function createClient(p: { name: string; email: string; plan: string; trialDays: number; paidUntil: string | null }): Promise<string> {
+  const { data, error } = await sb().rpc('admin_create_client', {
+    p_name: p.name,
+    p_owner_email: p.email,
+    p_plan: p.plan,
+    p_trial_days: p.trialDays,
+    p_paid_until: p.paidUntil,
+  });
+  fail(error);
+  return data as string;
+}
+
+export async function updateClient(c: Pick<ClientRow, 'id' | 'name' | 'plan' | 'status' | 'trial_ends_at' | 'paid_until' | 'seats' | 'admin_notes'>) {
+  const { error } = await sb().rpc('admin_update_client', {
+    p_id: c.id,
+    p_name: c.name,
+    p_plan: c.plan,
+    p_status: c.status,
+    p_trial_ends_at: c.trial_ends_at,
+    p_paid_until: c.paid_until,
+    p_seats: c.seats,
+    p_notes: c.admin_notes,
+  });
+  fail(error);
+}
