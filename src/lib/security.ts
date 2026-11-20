@@ -19,7 +19,11 @@ export function friendlyAuthError(e: unknown): string {
   const err = e as { message?: string; code?: string; name?: string } | null;
   const msg = err?.message ?? String(e ?? '');
   const code = `${err?.code ?? ''} ${err?.name ?? ''} ${msg}`.toLowerCase();
-  if (code.includes('notallowed') || code.includes('cancel') || code.includes('aborted')) return 'Cancelled — nothing was changed.';
+  if (code.includes('notallowed') || code.includes('cancel') || code.includes('aborted')) {
+    // Keep the phone's own reason: "cancelled" is often really "this device can't make a passkey here".
+    const detail = msg && !/^(the operation either timed out or was not allowed)/i.test(msg) ? ` (${err?.name ?? 'Error'}: ${msg})` : err?.name ? ` (${err.name})` : '';
+    return `Cancelled — nothing was changed.${detail}`;
+  }
   if (code.includes('no passkey') || code.includes('not found') || code.includes('invalid credential') || code.includes('credential not found'))
     return 'No Karlo passkey found on this device. Sign in with your password, then add one under Security & sign-in.';
   if (code.includes('challenge_expired')) return 'That took too long. Please try again.';

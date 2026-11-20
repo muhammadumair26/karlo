@@ -3,8 +3,8 @@
   "appName": "Karlo",
   "webDir": "dist",
   "server": {
-    "androidScheme": "https",
-    "hostname": "karlo.orionsoftsol.com"
+    "url": "https://karlo.orionsoftsol.com",
+    "androidScheme": "https"
   },
   "plugins": {
     "SplashScreen": {
