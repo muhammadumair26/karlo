@@ -31,7 +31,7 @@ import { boardToCSV, karloExport } from '../lib/importers';
 import { deleteFiles, pathsOf } from '../lib/files';
 import { notificationsFor, sendNotifications } from '../lib/notify';
 import type { BoardMeta, Me, Person } from '../lib/types';
-import { BACKGROUND_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
+import { BACKGROUND_PHOTOS, DUBAI_PHOTOS, BOARD_COLORS, canAdmin, canEdit, photoUrl, PRIORITIES, ROLE_INFO } from '../lib/types';
 import { useBoardSync, type SyncStatus } from '../lib/useBoardSync';
 import { CalendarView } from './CalendarView';
 import { DashboardView } from './DashboardView';
@@ -438,7 +438,19 @@ export function BoardPage({
 
       {panel === 'background' && data && (
         <Modal title="Board background" onClose={closePanel}>
-          <h4>Photos</h4>
+          <h4>Dubai</h4>
+          <div className="bg-grid">
+            {DUBAI_PHOTOS.map((u) => (
+              <button
+                key={u}
+                className={`bg-thumb ${background === u ? 'on' : ''}`}
+                style={{ backgroundImage: `url("${photoUrl(u, 320)}")` }}
+                onClick={() => dispatch({ type: 'SET_BACKGROUND', url: u })}
+                aria-label="Use this Dubai photo"
+              />
+            ))}
+          </div>
+          <h4>Nature & cities</h4>
           <div className="bg-grid">
             {BACKGROUND_PHOTOS.map((u) => (
               <button

@@ -154,6 +154,18 @@ export interface Me {
 
 export const BOARD_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#475569'];
 
+/** Dubai photos (Unsplash), each checked by eye. */
+export const DUBAI_PHOTOS = [
+  'https://images.unsplash.com/photo-1512453979798-5ea266f8880c', // skyline at sunset
+  'https://images.unsplash.com/photo-1518684079-3c830dcef090', // Burj Al Arab from the air
+  'https://images.unsplash.com/photo-1489516408517-0c0a15662682', // Atlantis, The Palm
+  'https://images.unsplash.com/photo-1526495124232-a04e1849168c', // Downtown at dusk
+  'https://images.unsplash.com/photo-1528702748617-c64d49f918af', // Dubai Marina with camels
+  'https://images.unsplash.com/photo-1546412414-e1885259563a', // Burj Al Arab, beach view
+  'https://images.unsplash.com/photo-1580674684081-7617fbf3d745', // Burj Khalifa & Dubai Mall
+  'https://images.unsplash.com/photo-1582672060674-bc2bd808a8b5', // Burj Khalifa with palms
+];
+
 export const BACKGROUND_PHOTOS = [
   'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df',
   'https://images.unsplash.com/photo-1506744038136-46273834b3fb',
