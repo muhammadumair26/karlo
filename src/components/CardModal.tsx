@@ -1,5 +1,6 @@
 import {
   AlignLeft,
+  LogOut,
   Archive,
   CheckSquare,
   ChevronDown,
@@ -214,6 +215,9 @@ export function CardModal({
   const canManage = editable && (isOwner || isAdmin);
   const creator = card.createdBy ? peopleById.get(card.createdBy) : undefined;
   const creatorName = creator?.name ?? (card.createdBy === 'import' || !card.createdBy ? 'Imported' : 'Former member');
+  // "Leave card": take yourself off as member and owner (never leave a card with no owner).
+  const onCard = card.assignees.includes(me.id) || isOwner;
+  const soleOwner = isOwner && owners.length === 1;
   const toggle = (p: Pop) => setPop(pop === p ? null : p);
   const toggleAssignee = (p: Person) => {
     const on = card.assignees.includes(p.user_id);
@@ -713,6 +717,19 @@ export function CardModal({
               <button onClick={() => (setMenu(false), update({ archived: !card.archived }, card.archived ? 'restored {card}' : 'archived {card}'))}>
                 <Archive size={16} /> {card.archived ? 'Restore card' : 'Archive card'}
               </button>
+              {onCard && (
+                <button
+                  disabled={soleOwner}
+                  title={soleOwner ? "You're the only owner. Add another owner before leaving." : undefined}
+                  onClick={() => {
+                    setMenu(false);
+                    if (soleOwner) return;
+                    update({ assignees: card.assignees.filter((x) => x !== me.id), owners: owners.filter((x) => x !== me.id) }, 'left {card}');
+                  }}
+                >
+                  <LogOut size={16} /> Leave card
+                </button>
+              )}
               <button
                 className="danger-text"
                 disabled={!canManage}
