@@ -917,3 +917,6 @@ button.stat:hover { outline: 2px solid #388bff; }
 .list.add-list:has(.add-form) { background: #f1f2f4; padding: 8px; }
 .list .add-trigger { color: #44546f; }
 .list .add-trigger:hover { color: #172b4d; background: rgba(9,30,66,.08); }
+/* Logo icon is transparent around its outline — no white tile behind it. */
+.brand-logo { background: transparent; border-radius: 0; width: 30px; height: 30px; }
+.loading-logo img { background: transparent; border-radius: 0; }
