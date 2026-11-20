@@ -6,7 +6,7 @@ import { ImportModal } from './components/ImportModal';
 import { NotificationsBell } from './components/NotificationsPanel';
 import { SearchBar } from './components/SearchBar';
 import { Sidebar } from './components/Sidebar';
-import { Avatar, download, Menu } from './components/ui';
+import { Avatar, download, Menu, Modal } from './components/ui';
 import { ProfileModal } from './components/ProfileModal';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import * as api from './lib/api';
@@ -74,6 +74,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth > 720);
   const [wsModal, setWsModal] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [newWsOpen, setNewWsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
   const [starred, setStarred] = useState<string[]>(() => {
@@ -297,10 +298,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
             starred={starred}
             onSelect={select}
             onNewBoard={newBoard}
-            onNewWorkspace={newWorkspace}
             onOpenWorkspace={setWsModal}
-            onImport={() => setImportOpen(true)}
-            onExportAll={exportAll}
           />
         )}
         <main className="main">
@@ -313,6 +311,9 @@ function Home({ userId, email }: { userId: string; email: string }) {
               starred={starred.includes(active.id)}
               onToggleStar={() => toggleStar(active.id)}
               onMetaChanged={reload}
+              onNewWorkspace={() => setNewWsOpen(true)}
+              onImport={() => setImportOpen(true)}
+              onExportAll={exportAll}
               onBoardGone={async () => {
                 select(null);
                 await reload();
@@ -322,12 +323,42 @@ function Home({ userId, email }: { userId: string; email: string }) {
             <div className="empty">
               <h2>No boards yet</h2>
               <p>Create a board from the sidebar, or import from Trello or ClickUp.</p>
+              <div className="empty-actions">
+                <button className="btn translucent" onClick={() => setImportOpen(true)}>
+                  Import (Trello, ClickUp, CSV)
+                </button>
+                <button className="btn translucent" onClick={() => setNewWsOpen(true)}>
+                  New workspace
+                </button>
+              </div>
             </div>
           )}
         </main>
       </div>
 
       {wsForModal && <WorkspaceModal workspace={wsForModal} me={me} onClose={() => setWsModal(null)} onChanged={reload} />}
+      {newWsOpen && (
+        <Modal title="New workspace" onClose={() => setNewWsOpen(false)}>
+          <form
+            className="profile-form"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const name = String(new FormData(e.currentTarget).get('name') ?? '').trim();
+              if (!name) return;
+              setNewWsOpen(false);
+              await newWorkspace(name);
+            }}
+          >
+            <label>
+              <span className="muted">Workspace name — e.g. your team or company</span>
+              <input className="text-input" name="name" autoFocus required maxLength={60} placeholder="Orion Soft Sol" />
+            </label>
+            <div>
+              <button className="btn primary">Create workspace</button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {importOpen && (
         <ImportModal
           workspaces={workspaces}

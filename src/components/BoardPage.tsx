@@ -2,6 +2,7 @@ import {
   Archive,
   Calendar,
   Download,
+  FolderPlus,
   Filter,
   History,
   Image,
@@ -13,6 +14,7 @@ import {
   Table2,
   Tag,
   Trash2,
+  Upload,
   UserPlus,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -56,7 +58,13 @@ export function BoardPage({
   openCardRequest,
   onBoardGone,
   onMetaChanged,
+  onNewWorkspace,
+  onImport,
+  onExportAll,
 }: {
+  onNewWorkspace: () => void;
+  onImport: () => void;
+  onExportAll: () => void;
   /** Open this card once the board has loaded (from notifications or search). */
   openCardRequest?: { cardId: string; nonce: number } | null;
   meta: BoardMeta;
@@ -250,6 +258,16 @@ export function BoardPage({
             <button onClick={() => (setMenuOpen(false), setPanel('activity'))}><History size={16} /> Activity</button>
             <button onClick={() => (setMenuOpen(false), setPanel('archive'))}>
               <Archive size={16} /> Archived items ({archivedCards.length + archivedLists.length})
+            </button>
+            <hr />
+            <button onClick={() => (setMenuOpen(false), onNewWorkspace())}>
+              <FolderPlus size={16} /> New workspace
+            </button>
+            <button onClick={() => (setMenuOpen(false), onImport())}>
+              <Upload size={16} /> Import (Trello, ClickUp, CSV)
+            </button>
+            <button onClick={() => (setMenuOpen(false), onExportAll())}>
+              <Download size={16} /> Export all boards
             </button>
             <hr />
             <button onClick={() => (setMenuOpen(false), exportJSON())}><Download size={16} /> Export board (JSON)</button>

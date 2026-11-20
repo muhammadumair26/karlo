@@ -1,4 +1,4 @@
-import { Download, Star, Upload, Users } from 'lucide-react';
+import { Star, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { BoardMeta, Workspace } from '../lib/types';
 import { canEdit } from '../lib/types';
@@ -11,10 +11,7 @@ export function Sidebar({
   starred,
   onSelect,
   onNewBoard,
-  onNewWorkspace,
   onOpenWorkspace,
-  onImport,
-  onExportAll,
 }: {
   workspaces: Workspace[];
   boards: BoardMeta[];
@@ -22,10 +19,7 @@ export function Sidebar({
   starred: string[];
   onSelect: (id: string) => void;
   onNewBoard: (workspaceId: string, title: string) => void;
-  onNewWorkspace: (name: string) => void;
   onOpenWorkspace: (id: string) => void;
-  onImport: () => void;
-  onExportAll: () => void;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const wsIds = new Set(workspaces.map((w) => w.id));
@@ -91,15 +85,6 @@ export function Sidebar({
         </section>
       )}
 
-      <div className="sidebar-footer">
-        <AddForm label="New workspace" placeholder="Team or workspace name…" submitLabel="Create" onAdd={onNewWorkspace} />
-        <button className="add-trigger" onClick={onImport}>
-          <Upload size={14} /> Import (Trello, ClickUp, CSV)
-        </button>
-        <button className="add-trigger" onClick={onExportAll}>
-          <Download size={14} /> Export all boards
-        </button>
-      </div>
     </aside>
   );
 }

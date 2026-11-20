@@ -762,3 +762,5 @@ body:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: 
 .brand-logo { width: 30px; height: 30px; border-radius: 7px; box-shadow: none; background: #fff; object-fit: contain; }
 .auth-wordmark { display: block; height: 64px; width: auto; max-width: 100%; margin: 0 auto 4px; align-self: center; }
 .loading-logo img { background: #fff; }
+.empty-actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+.empty-actions .btn.translucent { margin-left: 0; }
