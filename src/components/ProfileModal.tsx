@@ -1,4 +1,4 @@
-import { Camera, KeyRound, Trash2 } from 'lucide-react';
+import { Camera, Check, KeyRound, Loader2, Trash2, UserRound } from 'lucide-react';
 import { useRef, useState } from 'react';
 import * as api from '../lib/api';
 import { resizeImage } from '../lib/image';
@@ -81,79 +81,84 @@ export function ProfileModal({ me, onClose, onSaved }: { me: Me; onClose: () => 
 
   return (
     <Modal title="Your profile" onClose={onClose}>
-      <div className="profile-top">
-        <div className="profile-photo">
-          <Avatar id={me.id} name={name || me.name} src={avatar} size={88} />
-          {busy === 'photo' && <span className="photo-busy">…</span>}
-        </div>
-        <div className="profile-photo-actions">
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => onPhoto(e.target.files?.[0])} />
-          <button className="btn" disabled={busy === 'photo'} onClick={() => fileRef.current?.click()}>
-            <Camera size={15} /> {avatar ? 'Change photo' : 'Upload photo'}
-          </button>
-          {avatar && (
-            <button className="btn ghost" disabled={busy === 'photo'} onClick={removePhoto}>
-              <Trash2 size={15} /> Remove
+      <div className="pf">
+        <div className="pf-head">
+          <div className="pf-photo">
+            <Avatar id={me.id} name={name || me.name} src={avatar} size={84} />
+            {busy === 'photo' && (
+              <span className="pf-photo-busy">
+                <Loader2 size={22} className="spin" />
+              </span>
+            )}
+            <button type="button" className="pf-cam" disabled={busy === 'photo'} onClick={() => fileRef.current?.click()} aria-label={avatar ? 'Change photo' : 'Upload photo'} title={avatar ? 'Change photo' : 'Upload photo'}>
+              <Camera size={16} />
             </button>
-          )}
-          <span className="muted">Any size — it's automatically cropped to a square and compressed.</span>
+          </div>
+          <div className="pf-who">
+            <b>{name || me.name}</b>
+            <span>{me.email}</span>
+            <div className="pf-photo-links">
+              <button type="button" className="pf-link" disabled={busy === 'photo'} onClick={() => fileRef.current?.click()}>
+                {avatar ? 'Change photo' : 'Upload photo'}
+              </button>
+              {avatar && (
+                <button type="button" className="pf-link danger" disabled={busy === 'photo'} onClick={removePhoto}>
+                  <Trash2 size={13} /> Remove
+                </button>
+              )}
+            </div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => onPhoto(e.target.files?.[0])} />
         </div>
+
+        {msg && <div className={msg.kind === 'ok' ? 'auth-info' : 'auth-error'}>{msg.text}</div>}
+
+        <form className="pf-card" onSubmit={save}>
+          <h4 className="pf-title">
+            <span className="pf-badge">
+              <UserRound size={15} />
+            </span>
+            Profile
+          </h4>
+          <label className="pf-field">
+            <span>Display name</span>
+            <input className="text-input" value={name} required maxLength={60} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="pf-field">
+            <span>Job title (optional)</span>
+            <input className="text-input" value={title} maxLength={60} placeholder="e.g. Project Manager, Developer" onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <label className="pf-field">
+            <span>Email</span>
+            <input className="text-input" value={me.email} disabled />
+          </label>
+          <button className="pf-btn primary" disabled={busy === 'save'}>
+            {busy === 'save' ? <Loader2 size={17} className="spin" /> : <Check size={17} />}
+            <span>{busy === 'save' ? 'Saving…' : 'Save profile'}</span>
+          </button>
+        </form>
+
+        <form className="pf-card" onSubmit={changePassword}>
+          <h4 className="pf-title">
+            <span className="pf-badge">
+              <KeyRound size={15} />
+            </span>
+            Change password
+          </h4>
+          <label className="pf-field">
+            <span>New password</span>
+            <input className="text-input" type="password" autoComplete="new-password" placeholder="At least 6 characters" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
+          </label>
+          <label className="pf-field">
+            <span>Confirm new password</span>
+            <input className="text-input" type="password" autoComplete="new-password" placeholder="Type it again" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} />
+          </label>
+          <button className="pf-btn" disabled={busy === 'password' || !pw.next}>
+            {busy === 'password' ? <Loader2 size={17} className="spin" /> : <KeyRound size={16} />}
+            <span>{busy === 'password' ? 'Changing…' : 'Change password'}</span>
+          </button>
+        </form>
       </div>
-
-      {msg && <div className={msg.kind === 'ok' ? 'auth-info' : 'auth-error'}>{msg.text}</div>}
-
-      <form className="profile-form" onSubmit={save}>
-        <label>
-          <span className="muted">Display name (shown to your team)</span>
-          <input className="text-input" value={name} required maxLength={60} onChange={(e) => setName(e.target.value)} />
-        </label>
-        <label>
-          <span className="muted">Job title (optional)</span>
-          <input
-            className="text-input"
-            value={title}
-            maxLength={60}
-            placeholder="e.g. Project Manager, Developer"
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </label>
-        <label>
-          <span className="muted">Email</span>
-          <input className="text-input" value={me.email} disabled />
-        </label>
-        <div>
-          <button className="btn primary" disabled={busy === 'save'}>
-            {busy === 'save' ? 'Saving…' : 'Save profile'}
-          </button>
-        </div>
-      </form>
-
-      <form className="profile-form password" onSubmit={changePassword}>
-        <h4>
-          <KeyRound size={15} /> Change password
-        </h4>
-        <input
-          className="text-input"
-          type="password"
-          autoComplete="new-password"
-          placeholder="New password (min 6 characters)"
-          value={pw.next}
-          onChange={(e) => setPw({ ...pw, next: e.target.value })}
-        />
-        <input
-          className="text-input"
-          type="password"
-          autoComplete="new-password"
-          placeholder="Confirm new password"
-          value={pw.confirm}
-          onChange={(e) => setPw({ ...pw, confirm: e.target.value })}
-        />
-        <div>
-          <button className="btn" disabled={busy === 'password' || !pw.next}>
-            {busy === 'password' ? 'Changing…' : 'Change password'}
-          </button>
-        </div>
-      </form>
     </Modal>
   );
 }

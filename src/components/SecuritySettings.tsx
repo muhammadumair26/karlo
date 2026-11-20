@@ -1,6 +1,7 @@
 import { Fingerprint, KeyRound, ShieldCheck, Smartphone, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useBootDone } from '../lib/boot';
+import { appLockAvailable, appLockOn, requestUnlock, setAppLock } from '../lib/appLock';
 import {
   addPasskey,
   disableTotp,
@@ -28,6 +29,18 @@ export function SecurityModal({ onClose }: { onClose: () => void }) {
   const [setup, setSetup] = useState<{ factorId: string; qr: string; secret: string } | null>(null);
   const [code, setCode] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  const [lockOn, setLockOn] = useState(() => appLockOn());
+  const toggleLock = async () => {
+    setErr(null);
+    // Confirm with the phone's own fingerprint / screen lock before switching either way.
+    const r = await requestUnlock(lockOn ? 'Turn off app lock' : 'Turn on app lock');
+    if (!r.ok) {
+      if (r.reason) setErr(r.reason);
+      return;
+    }
+    setAppLock(!lockOn);
+    setLockOn(!lockOn);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -114,6 +127,23 @@ export function SecurityModal({ onClose }: { onClose: () => void }) {
       <div className="ex-form sec">
         {err && <div className="auth-error">{err}</div>}
 
+        {appLockAvailable() && (
+          <section className="sec-block">
+            <div className="sec-head">
+              <Smartphone size={20} />
+              <div>
+                <strong>App lock</strong>
+                <span className="muted">Stay signed in and open Karlo with your fingerprint, face or screen lock — no email or password.</span>
+              </div>
+            </div>
+            <div className="sec-toggle-row">
+              <span className="muted">{lockOn ? 'On — Karlo asks to unlock when you open it.' : 'Off'}</span>
+              <button type="button" role="switch" aria-checked={lockOn} aria-label="App lock" className={`rs-toggle ${lockOn ? 'on' : ''}`} onClick={() => void toggleLock()}>
+                <span />
+              </button>
+            </div>
+          </section>
+        )}
         <section className="sec-block">
           <div className="sec-head">
             <Fingerprint size={20} />

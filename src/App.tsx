@@ -30,6 +30,7 @@ import { BOARD_COLORS } from './lib/types';
 import { openedFromSetPasswordLink, supabase } from './supabase';
 import { showAlert } from './components/dialog';
 import { hideBoot, useBootDone } from './lib/boot';
+import { AppLockGate } from './components/AppLockGate';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -83,7 +84,11 @@ export default function App() {
   if (needsPassword) return <SetPasswordScreen email={session.user.email ?? ''} onDone={() => setNeedsPassword(false)} />;
   if (secondStep === null) return <div className="auth-page" />;
   if (secondStep) return <SecondStepScreen onDone={() => setSecondStep(false)} />;
-  return <Home key={session.user.id} userId={session.user.id} email={session.user.email ?? ''} />;
+  return (
+    <AppLockGate>
+      <Home key={session.user.id} userId={session.user.id} email={session.user.email ?? ''} />
+    </AppLockGate>
+  );
 }
 
 const ACTIVE_KEY = 'karlo-active-board';
