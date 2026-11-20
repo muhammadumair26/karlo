@@ -123,7 +123,10 @@ class KarloContainerViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        let inset = view.safeAreaInsets
+        // Only a one-sided strip (the Duo's clock column) is kept clear. Ordinary iPhones turned sideways have
+        // equal margins on both sides for the notch; there the page stays full width, as before.
+        var inset = view.safeAreaInsets
+        if inset.left > 0 && inset.right > 0 { inset.left = 0; inset.right = 0 }
         karlo.view.frame = view.bounds.inset(by: UIEdgeInsets(top: 0, left: inset.left, bottom: 0, right: inset.right))
         // Round only the corners that face the strip.
         var corners: CACornerMask = []
@@ -134,7 +137,7 @@ class KarloContainerViewController: UIViewController {
         karlo.view.layer.masksToBounds = !corners.isEmpty
     }
 
-    private var hasSideStrip: Bool { view.safeAreaInsets.left > 0 || view.safeAreaInsets.right > 0 }
+    private var hasSideStrip: Bool { (view.safeAreaInsets.left > 0) != (view.safeAreaInsets.right > 0) }
     // With a side strip the clock sits on the black strip, so keep it white; otherwise the page decides.
     override var childForStatusBarStyle: UIViewController? { hasSideStrip ? nil : karlo }
     override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
