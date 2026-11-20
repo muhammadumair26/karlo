@@ -248,7 +248,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
     return (
       <div className="auth-page">
         <div className="loading-logo">
-          <img src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />
+          <img src={`${import.meta.env.BASE_URL}karlo-icon.png`} alt="" />
           {error ? <div className="auth-error">{error}</div> : <span>Loading your workspace…</span>}
         </div>
       </div>
@@ -262,7 +262,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
           ☰
         </button>
         <span className="brand">
-          <img className="brand-logo" src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />
+          <img className="brand-logo" src={`${import.meta.env.BASE_URL}karlo-icon.png`} alt="" />
           Karlo
         </span>
         <SearchBar boards={boards} onOpen={openFromAnywhere} />

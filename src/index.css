@@ -757,3 +757,8 @@ body:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: 
 .link-btn.inline:hover { text-decoration: underline; }
 /* card cover on the board */
 .card-cover { margin: -8px -12px 8px; height: 140px; border-radius: 8px 8px 0 0; background: #dfe1e6 center / cover no-repeat; }
+
+/* ---------- Brand (Karlo logo) ---------- */
+.brand-logo { width: 30px; height: 30px; border-radius: 7px; box-shadow: none; background: #fff; object-fit: contain; }
+.auth-wordmark { display: block; height: 64px; width: auto; max-width: 100%; margin: 0 auto 4px; align-self: center; }
+.loading-logo img { background: #fff; }

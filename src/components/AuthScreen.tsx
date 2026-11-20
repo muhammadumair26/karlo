@@ -70,7 +70,7 @@ export function AuthScreen() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <div className="auth-brand"><img className="brand-logo large" src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />Karlo</div>
+        <img className="auth-wordmark" src={`${import.meta.env.BASE_URL}karlo-wordmark.png`} alt="Karlo" />
         {mode !== 'forgot' && (
           <div className="auth-tabs" role="tablist">
             <button type="button" role="tab" aria-selected={mode === 'signin'} className={mode === 'signin' ? 'on' : ''} onClick={() => switchTo('signin')}>
@@ -163,7 +163,7 @@ export function SetPasswordScreen({ email, onDone }: { email: string; onDone: ()
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <div className="auth-brand"><img className="brand-logo large" src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />Karlo</div>
+        <img className="auth-wordmark" src={`${import.meta.env.BASE_URL}karlo-wordmark.png`} alt="Karlo" />
         <h2>Set your password</h2>
         <p className="muted">for {email}</p>
         <input
