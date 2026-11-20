@@ -243,6 +243,7 @@ export function ExpensesView({
 
   return (
     <div className="dashboard expenses">
+      <section className="ex-top">
       <div className="ex-toolbar">
         <div className="ex-title">
           <Wallet size={18} /> Finance
@@ -329,6 +330,7 @@ export function ExpensesView({
           <Coins size={13} /> All totals in {cur}. Entries in {otherCurrencies.join(', ')} are converted at the rate saved with each entry.
         </p>
       )}
+      </section>
 
       <div className="dash-grid ex-grid">
         {!solo && (

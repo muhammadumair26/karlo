@@ -1611,3 +1611,25 @@ td.ex-in strong { color: #216e4e; }
 .vc-name { flex: 1; }
 .vc-row .icon-btn { width: 28px; height: 28px; display: inline-grid; place-items: center; color: #44546f; }
 .vc-row .icon-btn:disabled { opacity: .3; }
+
+/* ---------------------------------------------------------------- finance summary panel */
+.ex-top { background: rgba(9, 30, 66, .55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, .12); border-radius: 14px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 12px; }
+.ex-top .ex-toolbar { margin-bottom: 0; }
+.ex-top .ex-title { text-shadow: none; }
+.ex-top .ex-stats { margin-bottom: 0; }
+.ex-top .ex-stats .stat { box-shadow: none; }
+.ex-top .ex-fx-note { margin: 0; color: rgba(255, 255, 255, .85); text-shadow: none; font-size: 12px; }
+@media (max-width: 700px) {
+  .ex-top { padding: 12px; gap: 10px; border-radius: 12px; }
+  .ex-title { font-size: 16px; justify-content: flex-start; }
+  .ex-title .ex-private { margin-left: auto; }
+  .ex-private { font-size: 10px; }
+  .ex-toolbar .header-spacer { display: none; }
+  .ex-toolbar .ex-more { order: 3; }
+  .ex-toolbar .ex-income-btn, .ex-toolbar .btn.primary { flex: 1; justify-content: center; }
+  .ex-stats { gap: 6px; }
+  .ex-stats .stat { padding: 8px 10px; border-radius: 10px; }
+  .ex-stats .stat-num { font-size: 15px; }
+  .ex-stats .stat-label { font-size: 11px; line-height: 1.3; }
+  .ex-stats .ex-meter { margin-top: 5px; height: 4px; }
+}
