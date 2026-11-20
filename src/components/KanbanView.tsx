@@ -1,5 +1,5 @@
 import { CalendarClock, Check, ChevronsLeftRight, ChevronsRightLeft, Lock, MoreHorizontal } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { BoardActionBody } from '../lib/board';
 import { uid } from '../lib/board';
 import type { Filters } from '../lib/filters';
@@ -12,6 +12,9 @@ import { boardSettings } from '../lib/types';
 import { AddForm, EditableText } from './Editable';
 import { Menu } from './ui';
 import { askConfirm } from './dialog';
+import { useCardFlip, useTouchCardDrag } from './cardMotion';
+
+const coarsePointer = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 
 type Drag = { kind: 'card'; id: string } | { kind: 'list'; id: string } | null;
 
@@ -52,6 +55,27 @@ export function KanbanView({
   const [drag, setDrag] = useState<Drag>(null);
   const [cardTarget, setCardTarget] = useState<{ listId: string; index: number } | null>(null);
   const [listTarget, setListTarget] = useState<number | null>(null);
+  // Height of the gap opened for a dragged card (its own height), and whether a finger is carrying it.
+  const [gapHeight, setGapHeight] = useState<number | null>(null);
+  const [touchDrag, setTouchDrag] = useState(false);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const targetRef = useRef(cardTarget);
+  useLayoutEffect(() => {
+    targetRef.current = cardTarget;
+  });
+  useCardFlip(canvasRef);
+  // Phones show one list at a time, with page dots under it (as in Trello's app).
+  const [page, setPage] = useState(0);
+  const onCanvasScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const first = e.currentTarget.querySelector<HTMLElement>('[data-list-id]');
+    if (!first) return;
+    const p = Math.round(e.currentTarget.scrollLeft / (first.offsetWidth + 10));
+    if (p !== page) setPage(p);
+  };
+  const goToPage = (i: number) => {
+    const el = canvasRef.current?.querySelectorAll<HTMLElement>('[data-list-id], .add-list')[i];
+    el?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  };
   const [editingList, setEditingList] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   // Collapsed lists are a per-person view preference, so they live in this browser only.
@@ -81,7 +105,29 @@ export function KanbanView({
     setDrag(null);
     setCardTarget(null);
     setListTarget(null);
+    setGapHeight(null);
+    setTouchDrag(false);
   };
+
+  const touch = useTouchCardDrag({
+    canvasRef,
+    data,
+    enabled: editable,
+    onLift: (cardId, t, h) => {
+      setDrag({ kind: 'card', id: cardId });
+      setCardTarget(t);
+      setGapHeight(h);
+      setTouchDrag(true);
+    },
+    onTarget: setCardTarget,
+    onDrop: (cardId) => {
+      const t = targetRef.current;
+      if (t) dispatch({ type: 'MOVE_CARD', cardId, toListId: t.listId, toIndex: t.index });
+      endDrag();
+    },
+    onCancel: endDrag,
+  });
+  const gap = <div className="card-placeholder" style={gapHeight ? { height: gapHeight } : undefined} />;
 
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -97,7 +143,8 @@ export function KanbanView({
   };
 
   return (
-    <div className="board-canvas" onDrop={onDrop} onDragOver={(e) => drag && e.preventDefault()}>
+    <>
+    <div className="board-canvas" ref={canvasRef} onScroll={onCanvasScroll} onDrop={onDrop} onDragOver={(e) => drag && e.preventDefault()} onClickCapture={touch.onClickCapture}>
       {lists.map((list, listIndex) => {
         const visible = list.cardIds.map((id) => data.cards[id]).filter((c): c is Card => !!c && matches(c, filters, meId));
         const target = cardTarget?.listId === list.id ? cardTarget.index : null;
@@ -108,6 +155,7 @@ export function KanbanView({
           return (
             <div
               key={list.id}
+              data-list-id={list.id}
               className="list collapsed"
               onClick={() => toggleCollapsed(list.id)}
               title="Expand list"
@@ -127,6 +175,7 @@ export function KanbanView({
         return (
           <div
             key={list.id}
+            data-list-id={list.id}
             className={`list ${drag?.kind === 'list' && drag.id === list.id ? 'dragging' : ''} ${
               listTarget === listIndex ? 'drop-before' : ''
             } ${listTarget === listIndex + 1 && listIndex === lists.length - 1 ? 'drop-after' : ''}`}
@@ -257,15 +306,17 @@ export function KanbanView({
                 const realIndex = list.cardIds.indexOf(card.id);
                 return (
                   <div key={card.id}>
-                    {target === realIndex && <div className="card-placeholder" />}
+                    {target === realIndex && gap}
                     <CardItem
                       unread={unreadByCard?.get(card.id)?.length ?? 0}
                       card={card}
                       coverUrl={coverPath(card) ? coverUrls.get(coverPath(card)!) : undefined}
                       labels={labels}
                       people={people}
-                      draggable={editable}
+                      draggable={editable && !coarsePointer}
                       dragging={drag?.kind === 'card' && drag.id === card.id}
+                      carried={touchDrag && drag?.kind === 'card' && drag.id === card.id}
+                      onPointerDown={(e) => touch.onPointerDown(e, card.id, list.id)}
                       onOpen={() => onOpenCard(card.id)}
                       onToggleComplete={
                         editable
@@ -282,6 +333,7 @@ export function KanbanView({
                         e.stopPropagation();
                         e.dataTransfer.effectAllowed = 'move';
                         e.dataTransfer.setData('text/plain', card.id);
+                        setGapHeight(e.currentTarget.getBoundingClientRect().height);
                         setDrag({ kind: 'card', id: card.id });
                       }}
                       onDragEnd={endDrag}
@@ -297,7 +349,7 @@ export function KanbanView({
                   </div>
                 );
               })}
-              {placeholderAtEnd && <div className="card-placeholder" />}
+              {placeholderAtEnd && gap}
               {filtering && visible.length === 0 && activeCount > 0 && <div className="muted small-note">No matching cards</div>}
             </div>
 
@@ -324,5 +376,12 @@ export function KanbanView({
         </div>
       )}
     </div>
+    <div className="list-dots" aria-hidden>
+      {lists.length > 1 &&
+        [...lists, ...(editable ? [null] : [])].map((l, i) => (
+          <button key={l?.id ?? 'add'} tabIndex={-1} className={i === page ? 'on' : ''} onClick={() => goToPage(i)} />
+        ))}
+    </div>
+    </>
   );
 }

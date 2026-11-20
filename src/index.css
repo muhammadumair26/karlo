@@ -87,6 +87,15 @@ input, textarea { font: inherit; color: inherit; }
 .card:hover { background: #f7f8fa; outline: 2px solid #388bff; }
 .card.dragging { opacity: .4; }
 .card-placeholder { height: 36px; border-radius: 8px; background: rgba(9,30,66,.12); }
+/* Picking cards up and carrying them (see cardMotion.ts) */
+.list-cards { position: relative; }
+.card.carried { display: none; }
+.drag-ghost { position: fixed !important; z-index: 1000; margin: 0 !important; pointer-events: none; cursor: grabbing; box-sizing: border-box;
+  transition: transform .18s cubic-bezier(.2,.9,.3,1), box-shadow .18s; transform-origin: 50% 40%; }
+.drag-ghost.lifted { transform: rotate(3.5deg) scale(1.04); box-shadow: 0 16px 34px rgba(9, 30, 66, .38), 0 2px 6px rgba(9, 30, 66, .2); }
+.drag-ghost.dropping { transition: left .19s cubic-bezier(.2,.9,.3,1), top .19s cubic-bezier(.2,.9,.3,1), transform .19s, box-shadow .19s; }
+@media (pointer: coarse) { .card { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
+.board-canvas.touch-dragging .card:hover { transform: none; }
 .card-labels { display: flex; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; }
 .label-bar { width: 40px; height: 8px; border-radius: 4px; }
 .card-title { word-wrap: break-word; white-space: pre-wrap; }
@@ -1943,38 +1952,68 @@ body:has(.app-banner) .run-timer { bottom: 152px; }
    The phone app adds .side-rail and --rail (the clock/camera column's width) when the screen has
    a one-sided strip. The page then fills the whole screen and its buttons live in that column as
    round floating buttons, instead of the top bar and bottom bar. Nothing else ever gets this class. */
-html.side-rail { --rail-top: 150px; --rail-btn: 50px; }
-.side-rail body::before { content: ''; position: fixed; top: -40px; right: -30px; width: calc(var(--rail) + 70px); height: calc(var(--rail-top) + 60px); z-index: 29; pointer-events: none; background: radial-gradient(closest-side, rgba(9, 14, 30, .5), rgba(9, 14, 30, 0)); }
+html.side-rail {
+  --rail-top: 168px; --rail-btn: 48px;
+  /* the clock column's centre line: iOS draws the camera and clock about 48pt from the right edge */
+  --rail-x: calc(48px - var(--rail-btn) / 2);
+  --glass: rgba(236, 238, 243, .62); --glass-ink: #1d2433;
+  --glass-fx: blur(22px) saturate(1.6);
+  --glass-shadow: 0 6px 20px rgba(9, 20, 45, .22), inset 0 0 0 .5px rgba(255, 255, 255, .7), inset 0 1px 0 rgba(255, 255, 255, .55);
+}
+/* a frosted pill behind the camera, clock and battery, like the phone's own apps */
+.side-rail body::before {
+  content: ''; position: fixed; z-index: 29; pointer-events: none; top: 18px; right: calc(48px - 28px); width: 56px; height: 140px; border-radius: 28px;
+  background: rgba(30, 36, 52, .28); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 32px); mask-image: linear-gradient(to bottom, transparent, #000 32px);
+}
+/* the title sits straight on the photo, no band behind it */
 .side-rail .board-header, .side-rail .filter-bar { padding-right: calc(var(--rail) + 6px) !important; }
+.side-rail .board-header.on-photo { background: none; padding-top: 18px; padding-bottom: 6px; }
+.side-rail .board-header.on-photo::before { backdrop-filter: none; -webkit-backdrop-filter: none; background: linear-gradient(to bottom, rgba(5, 12, 30, .55), rgba(5, 12, 30, 0)); inset: 0 0 -24px; }
+.side-rail .board-header .board-title { font-size: 22px; text-shadow: 0 1px 6px rgba(0, 0, 0, .35); }
 .side-rail .auth-page { padding-right: calc(var(--rail) + 4px); }
 /* lists slide under the floating buttons; the last one can still scroll fully clear of them */
 .side-rail .board-canvas::after { content: ''; flex: 0 0 calc(var(--rail) - 10px); }
 .side-rail .tv-wrap, .side-rail .calendar, .side-rail .dashboard, .side-rail .timeline, .side-rail .mapview { margin-right: calc(var(--rail) + 4px); }
-/* top bar → column of round buttons under the clock */
-.side-rail .topbar { position: fixed; z-index: 30; top: var(--rail-top); right: 0; width: var(--rail); flex-direction: column; align-items: center; gap: 10px; padding: 0 !important; background: none !important; border: none; box-shadow: none; backdrop-filter: none !important; }
-.side-rail .topbar .brand, .side-rail .topbar .header-spacer, .side-rail .topbar::before, .side-rail .topbar::after { display: none; }
-.side-rail .topbar > .icon-btn, .side-rail .topbar .profile-btn, .side-rail .topbar .bell-btn, .side-rail .topbar .searchbar {
-  width: var(--rail-btn); height: var(--rail-btn); flex: none; border-radius: 50%; display: grid; place-items: center; padding: 0;
-  background: rgba(255, 255, 255, .78); color: #172b4d; backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  box-shadow: 0 4px 14px rgba(9, 30, 66, .28), inset 0 0 0 1px rgba(255, 255, 255, .6); border: none; font-size: 20px;
+/* top bar → one glass capsule under the clock (menu, search, alerts, you) */
+.side-rail .topbar {
+  position: fixed; z-index: 30; top: var(--rail-top); right: var(--rail-x); width: var(--rail-btn); flex-direction: column; align-items: center; gap: 0;
+  padding: 3px 0 !important; border-radius: 999px; background: none !important; border: none; box-shadow: none; backdrop-filter: none !important; isolation: isolate;
 }
-.side-rail .topbar .profile-btn { background: none; box-shadow: 0 4px 14px rgba(9, 30, 66, .28); }
-.side-rail .topbar .searchbar { position: relative; margin: 0; max-width: none; flex: none; }
-.side-rail .topbar .searchbar input { width: 100%; height: 100%; padding: 0; border-radius: 50%; color: transparent; }
-.side-rail .topbar .searchbar .search-icon { left: 50% !important; right: auto !important; transform: translate(-50%, -50%); color: #172b4d; }
-.side-rail .topbar .searchbar:focus-within, .side-rail .topbar .searchbar.open { position: fixed; top: 10px; left: 10px; right: calc(var(--rail) + 10px); width: auto; height: 44px; border-radius: 12px; display: block; }
+.side-rail .topbar .brand, .side-rail .topbar .header-spacer, .side-rail .topbar::after { display: none; }
+/* the glass is drawn on a layer of its own, so panels inside the bar can still cover the whole screen */
+.side-rail .topbar::before {
+  content: ''; display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
+  background: var(--glass); backdrop-filter: var(--glass-fx); -webkit-backdrop-filter: var(--glass-fx); box-shadow: var(--glass-shadow);
+}
+.side-rail .topbar > .icon-btn, .side-rail .topbar .profile-btn, .side-rail .topbar .searchbar {
+  width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; padding: 0; margin: 0;
+  background: none; color: var(--glass-ink); border: none; box-shadow: none; font-size: 19px; backdrop-filter: none;
+}
+.side-rail .topbar .profile-btn img, .side-rail .topbar .profile-btn > * { width: 28px !important; height: 28px !important; font-size: 11px; }
+.side-rail .topbar .bell-count { top: 4px; right: 3px; }
+.side-rail .topbar .searchbar { position: relative; max-width: none; }
+.side-rail .topbar .searchbar input { width: 100%; height: 100%; padding: 0; border: none; border-radius: 50%; background: none; color: transparent; box-shadow: none; }
+.side-rail .topbar .searchbar input::placeholder { color: transparent; }
+.side-rail .topbar .searchbar .search-icon { left: 50% !important; right: auto !important; transform: translate(-50%, -50%); color: var(--glass-ink); }
+.side-rail .topbar .searchbar:focus-within, .side-rail .topbar .searchbar.open { position: fixed; top: 10px; left: 10px; right: calc(var(--rail) + 10px); width: auto; height: 44px; border-radius: 12px; display: block; background: #fff; box-shadow: 0 8px 24px rgba(9, 30, 66, .3); }
 .side-rail .topbar .searchbar:focus-within input, .side-rail .topbar .searchbar.open input { border-radius: 12px; padding-left: 36px; color: #172b4d; }
+.side-rail .topbar .searchbar:focus-within input::placeholder, .side-rail .topbar .searchbar.open input::placeholder { color: #8590a2; }
 .side-rail .topbar .searchbar:focus-within .search-icon, .side-rail .topbar .searchbar.open .search-icon { left: 12px !important; transform: translateY(-50%); }
-/* bottom bar → one glass capsule at the bottom of the column, above the mic */
+/* bottom bar → a second glass capsule low in the column, above the mic */
 .side-rail .phone-bar {
-  display: flex; position: fixed; z-index: 30; left: auto; top: auto; right: calc((var(--rail) - var(--rail-btn)) / 2); bottom: calc(14px + 54px + 12px);
-  width: var(--rail-btn); flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border: none; border-radius: 999px;
-  background: rgba(255, 255, 255, .78); backdrop-filter: blur(14px) saturate(1.4); -webkit-backdrop-filter: blur(14px) saturate(1.4); box-shadow: 0 4px 14px rgba(9, 30, 66, .28);
+  display: flex; position: fixed; z-index: 30; left: auto; top: auto; right: var(--rail-x); bottom: calc(26px + var(--rail-btn) + 12px);
+  width: var(--rail-btn); flex-direction: column; align-items: center; gap: 0; padding: 3px 0; border: none; border-radius: 999px;
+  background: var(--glass); backdrop-filter: var(--glass-fx); -webkit-backdrop-filter: var(--glass-fx); box-shadow: var(--glass-shadow);
 }
-.side-rail .phone-bar > button, .side-rail .phone-bar > .menu-anchor > button { min-width: 0; width: 42px; height: 42px; padding: 0; border-radius: 50%; display: grid; place-items: center; color: #172b4d; }
+.side-rail .phone-bar > button, .side-rail .phone-bar > .menu-anchor > button { min-width: 0; width: 44px; height: 44px; padding: 0; border-radius: 50%; display: grid; place-items: center; color: var(--glass-ink); background: none; }
 .side-rail .phone-bar button > span { display: none !important; }
-.side-rail .phone-bar button.on { background: #0c66e4; color: #fff; }
-.side-rail .va-fab { right: calc((var(--rail) - 50px) / 2); bottom: 14px; width: 50px; height: 50px; }
+.side-rail .phone-bar button.on { background: rgba(12, 102, 228, .16); color: #0c66e4; }
+/* the mic: a glass circle at the foot of the column */
+.side-rail .va-fab {
+  right: var(--rail-x); bottom: 26px; width: var(--rail-btn); height: var(--rail-btn); color: #5b3fd9;
+  background: var(--glass); backdrop-filter: var(--glass-fx); -webkit-backdrop-filter: var(--glass-fx); box-shadow: var(--glass-shadow);
+}
 .side-rail .run-timer { bottom: 14px; left: 12px; max-width: calc(100vw - var(--rail) - 24px); }
 /* no bottom bar to leave room for */
 .side-rail .board-canvas, .side-rail .tv-wrap, .side-rail .calendar, .side-rail .dashboard, .side-rail .timeline, .side-rail .mapview { margin-bottom: 0; }
@@ -1988,7 +2027,7 @@ html.side-rail { --rail-top: 150px; --rail-btn: 50px; }
 /* an open card fills the screen; its close and ••• buttons become round buttons under the clock */
 .side-rail .modal-backdrop:has(.card-window) { padding-right: 0 !important; }
 .side-rail .modal.card-window { padding-right: var(--rail); background: linear-gradient(to left, #f1f2f4 var(--rail), #fff var(--rail)); }
-.side-rail .cw-top .cw-close, .side-rail .cw-top > .menu-anchor { position: fixed; z-index: 60; right: calc((var(--rail) - var(--rail-btn)) / 2); margin: 0; }
+.side-rail .cw-top .cw-close, .side-rail .cw-top > .menu-anchor { position: fixed; z-index: 60; right: var(--rail-x); margin: 0; }
 .side-rail .cw-top .cw-close { top: var(--rail-top); }
 .side-rail .cw-top > .menu-anchor { top: calc(var(--rail-top) + var(--rail-btn) + 12px); }
 .side-rail .cw-top .cw-close, .side-rail .cw-top > .menu-anchor > .cw-icon {
@@ -1996,3 +2035,39 @@ html.side-rail { --rail-top: 150px; --rail-btn: 50px; }
   background: #fff; color: #172b4d; border: 1px solid #e6e8ec; box-shadow: 0 4px 14px rgba(9, 30, 66, .18);
 }
 .side-rail .cw-top > .menu-anchor > .menu { position: absolute; top: 0; left: auto; right: calc(100% + 12px); }
+
+/* ======================= Phone board: roomy cards, one list per screen (like Trello's app) ======================= */
+.list-dots { display: none; }
+@media (max-width: 700px) {
+  .board-canvas { scroll-snap-type: x mandatory; scroll-padding-left: 22px; padding-left: 22px; gap: 12px; }
+  .board-canvas.touch-dragging { scroll-snap-type: none; }
+  .board-canvas { scrollbar-width: none; }
+  .board-canvas::-webkit-scrollbar { display: none; }
+  .list, .list.add-list { scroll-snap-align: start; }
+  .list { width: calc(100vw - 64px); max-width: 360px; border-radius: 16px; padding: 10px 8px 8px 10px; }
+  .side-rail .list { width: calc(100vw - var(--rail) - 50px); }
+  .list-header { padding: 6px 4px 12px 6px; }
+  .list-header .list-title { font-size: 17px; font-weight: 700; }
+  .list-count { font-size: 15px; font-weight: 600; color: #44546f; }
+  .list-cards { gap: 10px; padding-right: 2px; }
+  .card { border-radius: 12px; padding: 14px 14px 12px; font-size: 16.5px; line-height: 23px; box-shadow: 0 1px 2px rgba(9, 30, 66, .2); }
+  .card:hover { outline: none; }
+  .card-edit { display: none; }
+  .card-title { padding-right: 0; font-weight: 500; color: #172b4d; }
+  .card-cover { margin: -14px -14px 12px; border-radius: 12px 12px 0 0; }
+  .card-labels { margin-bottom: 8px; }
+  /* the tick circle is always there, as in Trello */
+  .complete-circle, .card:hover .complete-circle { width: 21px; height: 21px; margin: 1px 10px 0 0; opacity: 1; border-width: 1.8px; }
+  .complete-circle svg { width: 13px; height: 13px; }
+  .card-badges { margin-top: 12px; gap: 6px 16px; font-size: 14px; color: #44546f; }
+  .card-badges .badge svg { width: 17px; height: 17px; }
+  .card-badges .avatar-stack .avatar, .card-badges .avatar-stack img { width: 32px !important; height: 32px !important; font-size: 12px; }
+  .list .add-trigger { font-size: 16px; padding: 10px 8px; }
+  .list-dots { display: flex; justify-content: center; gap: 9px; padding: 8px 0 10px; flex: none; }
+  .side-rail .list-dots { padding-right: var(--rail); }
+  .list-dots button { width: 8px; height: 8px; padding: 0; border: none; border-radius: 50%; background: rgba(255, 255, 255, .45); }
+  .list-dots button.on { background: #fff; }
+  .board-canvas { margin-bottom: 0 !important; }
+  .list-dots { margin-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .side-rail .list-dots { margin-bottom: 4px; }
+}

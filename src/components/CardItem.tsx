@@ -12,7 +12,9 @@ export function CardItem({
   labels,
   people,
   dragging,
+  carried = false,
   draggable,
+  onPointerDown,
   onOpen,
   onToggleComplete,
   onDragStart,
@@ -26,7 +28,10 @@ export function CardItem({
   labels: Map<string, Label>;
   people: Map<string, Person>;
   dragging: boolean;
+  /** Being carried by a finger: hidden here while its floating copy follows the finger. */
+  carried?: boolean;
   draggable: boolean;
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
   onOpen: () => void;
   onToggleComplete?: () => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -56,8 +61,10 @@ export function CardItem({
 
   return (
     <div
-      className={`card ${dragging ? 'dragging' : ''} ${card.completed ? 'completed' : ''}`}
+      className={`card ${dragging ? 'dragging' : ''} ${carried ? 'carried' : ''} ${card.completed ? 'completed' : ''}`}
+      data-card-id={card.id}
       draggable={draggable}
+      onPointerDown={onPointerDown}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
