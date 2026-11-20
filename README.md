@@ -1,6 +1,6 @@
-# Taskboard
+# Karlo
 
-A Trello-style Kanban project management tool built with React + TypeScript + Vite.
+Karlo is a Trello-style Kanban project management tool built with React + TypeScript + Vite.
 
 ## Run
 

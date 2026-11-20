@@ -1,11 +1,51 @@
-import { useCallback, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { useCallback, useEffect, useState } from 'react';
+import { AuthScreen, SetPasswordScreen } from './components/AuthScreen';
 import { BoardView } from './components/BoardView';
 import { CardModal } from './components/CardModal';
 import { AddForm, EditableText } from './components/Editable';
 import { useStore } from './store';
+import { openedFromSetPasswordLink, supabase } from './supabase';
+import { useCloudSync, type SyncStatus } from './sync';
+
+const STATUS_TEXT: Record<SyncStatus, string> = {
+  local: 'Saved on this device',
+  connecting: 'Connecting…',
+  saving: 'Saving…',
+  saved: '✓ Synced',
+  offline: '⚠ Offline – will retry',
+};
 
 export default function App() {
-  const [state, dispatch] = useStore();
+  const [session, setSession] = useState<Session | null>(null);
+  const [authReady, setAuthReady] = useState(!supabase);
+  const [needsPassword, setNeedsPassword] = useState(openedFromSetPasswordLink);
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthReady(true);
+    });
+    const { data } = supabase.auth.onAuthStateChange((event, s) => {
+      setSession(s);
+      if (event === 'PASSWORD_RECOVERY') setNeedsPassword(true);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (!authReady) return <div className="auth-page" />;
+  if (supabase && !session) return <AuthScreen />;
+  if (session && needsPassword)
+    return <SetPasswordScreen email={session.user.email ?? ''} onDone={() => setNeedsPassword(false)} />;
+  const userId = session?.user.id ?? null;
+  // Remount per user so each account gets its own state.
+  return <Workspace key={userId ?? 'local'} userId={userId} email={session?.user.email ?? null} />;
+}
+
+function Workspace({ userId, email }: { userId: string | null; email: string | null }) {
+  const [state, dispatch] = useStore(userId);
+  const syncStatus = useCloudSync(userId, state, dispatch);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -21,7 +61,7 @@ export default function App() {
         <button className="icon-btn light" onClick={() => setSidebarOpen((o) => !o)} title="Toggle boards">
           ☰
         </button>
-        <span className="brand">▦ Taskboard</span>
+        <span className="brand"><img className="brand-logo" src={`${import.meta.env.BASE_URL}karlo-logo.svg`} alt="" />Karlo</span>
         {board && (
           <input
             className="search"
@@ -29,6 +69,12 @@ export default function App() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
+        )}
+        <span className={`sync-status sync-${syncStatus}`}>{STATUS_TEXT[syncStatus]}</span>
+        {email && (
+          <button className="btn translucent signout" onClick={() => supabase?.auth.signOut()} title={email}>
+            Sign out
+          </button>
         )}
       </header>
 

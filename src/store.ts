@@ -3,10 +3,12 @@ import type { Card, LabelColor, State } from './types';
 import { BOARD_COLORS } from './types';
 
 const STORAGE_KEY = 'taskboard-state-v1';
+const keyFor = (userId: string | null) => (userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY);
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
 export type Action =
+  | { type: 'REPLACE'; data: State }
   | { type: 'ADD_BOARD'; title: string }
   | { type: 'RENAME_BOARD'; boardId: string; title: string }
   | { type: 'DELETE_BOARD'; boardId: string }
@@ -60,12 +62,15 @@ function seed(): State {
   return state;
 }
 
-function load(): State {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as State;
-  } catch {
-    /* ignore corrupt storage */
+function load(userId: string | null): State {
+  // Signed-in users get their own cache; on first sign-in, carry over any local-only boards.
+  for (const key of userId ? [keyFor(userId), STORAGE_KEY] : [STORAGE_KEY]) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) return JSON.parse(raw) as State;
+    } catch {
+      /* ignore corrupt storage */
+    }
   }
   return seed();
 }
@@ -76,6 +81,13 @@ function findListOfCard(state: State, cardId: string): string | undefined {
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
+    case 'REPLACE': {
+      // Keep the board this device is looking at, if it still exists.
+      const d = action.data;
+      const activeBoardId =
+        state.activeBoardId && d.boards[state.activeBoardId] ? state.activeBoardId : d.boardOrder[0] ?? null;
+      return { ...d, activeBoardId };
+    }
     case 'ADD_BOARD': {
       const id = uid();
       const color = BOARD_COLORS[state.boardOrder.length % BOARD_COLORS.length];
@@ -192,14 +204,14 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-export function useStore() {
-  const [state, dispatch] = useReducer(reducer, undefined, load);
+export function useStore(userId: string | null) {
+  const [state, dispatch] = useReducer(reducer, userId, load);
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(keyFor(userId), JSON.stringify(state));
     } catch {
       /* storage full or unavailable */
     }
-  }, [state]);
+  }, [state, userId]);
   return [state, dispatch] as const;
 }
