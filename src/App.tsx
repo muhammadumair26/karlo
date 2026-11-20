@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AuthScreen, SetPasswordScreen } from './components/AuthScreen';
 import { BoardPage } from './components/BoardPage';
+import { BoardSwitcher, rememberBoard } from './components/BoardSwitcher';
 import { ImportModal } from './components/ImportModal';
 import { NotificationsBell } from './components/NotificationsPanel';
 import { SearchBar } from './components/SearchBar';
@@ -100,6 +101,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
 
   const select = useCallback((id: string | null) => {
     setActiveId(id);
+    if (id) rememberBoard(id);
     try {
       if (id) localStorage.setItem(ACTIVE_KEY, id);
       else localStorage.removeItem(ACTIVE_KEY);
@@ -314,6 +316,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
               onNewWorkspace={() => setNewWsOpen(true)}
               onImport={() => setImportOpen(true)}
               onExportAll={exportAll}
+              switcher={<BoardSwitcher boards={boards} workspaces={workspaces} starred={starred} activeId={activeId} onSelect={select} />}
               onBoardGone={async () => {
                 select(null);
                 await reload();

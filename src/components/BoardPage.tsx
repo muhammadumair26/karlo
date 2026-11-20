@@ -61,7 +61,10 @@ export function BoardPage({
   onNewWorkspace,
   onImport,
   onExportAll,
+  switcher,
 }: {
+  /** Board switcher button, rendered at the start of the header. */
+  switcher?: React.ReactNode;
   onNewWorkspace: () => void;
   onImport: () => void;
   onExportAll: () => void;
@@ -191,6 +194,7 @@ export function BoardPage({
           document.body,
         )}
       <div className={`board-header ${background ? 'on-photo' : ''}`}>
+        {switcher}
         {editable ? (
           <EditableText
             className="board-title"
@@ -357,7 +361,7 @@ export function BoardPage({
       ) : view === 'board' ? (
         <KanbanView boardId={meta.id} data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : view === 'table' ? (
-        <TableView data={data} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
+        <TableView data={data} dispatch={dispatch} editable={editable} filters={filters} meId={me.id} people={peopleMap} onOpenCard={setOpenCardId} />
       ) : (
         <CalendarView data={data} filters={filters} meId={me.id} onOpenCard={setOpenCardId} />
       )}
