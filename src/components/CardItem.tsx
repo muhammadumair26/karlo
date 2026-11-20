@@ -37,9 +37,14 @@ export function CardItem({
   const status = dueStatus(card);
   const prio = PRIORITIES.find((p) => p.value === card.priority);
   const cardLabels = card.labelIds.map((id) => labels.get(id)).filter((l): l is Label => !!l);
+  // Owners first (with a star), then members who aren't owners.
+  const owners = (card.owners ?? []).filter((id) => people.has(id));
   const avatars = [
-    ...card.assignees.map((id) => ({ key: id, id, name: people.get(id)?.name ?? '?', guest: false, src: people.get(id)?.avatar_url })),
-    ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true, src: null })),
+    ...owners.map((id) => ({ key: 'o:' + id, id, name: people.get(id)!.name, guest: false, owner: true, src: people.get(id)!.avatar_url })),
+    ...card.assignees
+      .filter((id) => !owners.includes(id))
+      .map((id) => ({ key: id, id, name: people.get(id)?.name ?? '?', guest: false, owner: false, src: people.get(id)?.avatar_url })),
+    ...card.guests.map((g) => ({ key: 'g:' + g, id: 'guest:' + g, name: g, guest: true, owner: false, src: null })),
   ];
   const hasBadges =
     unread > 0 || card.priority !== 'none' || card.due || card.description || card.comments.length || card.attachments.length || total || avatars.length || card.location;
@@ -145,9 +150,15 @@ export function CardItem({
           <span className="badge-spacer" />
           {avatars.length > 0 && (
             <span className="avatar-stack">
-              {avatars.slice(0, 3).map((a) => (
-                <Avatar key={a.key} id={a.id} name={a.name} src={a.src} size={24} title={a.guest ? `${a.name} (imported, not linked)` : a.name} />
-              ))}
+              {avatars.slice(0, 3).map((a) =>
+                a.owner ? (
+                  <span key={a.key} className="owner-avatar sm">
+                    <Avatar id={a.id} name={a.name} src={a.src} size={24} title={`${a.name} (owner)`} />
+                  </span>
+                ) : (
+                  <Avatar key={a.key} id={a.id} name={a.name} src={a.src} size={24} title={a.guest ? `${a.name} (imported, not linked)` : a.name} />
+                ),
+              )}
               {avatars.length > 3 && (
                 <span className="avatar more" style={{ width: 24, height: 24, fontSize: 10 }}>
                   +{avatars.length - 3}
