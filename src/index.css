@@ -258,6 +258,8 @@ input, textarea { font: inherit; color: inherit; }
 
 /* avatars */
 .avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; color: #fff; font-weight: 700; flex-shrink: 0; user-select: none; }
+.avatar-wrap { position: relative; display: inline-flex; flex-shrink: 0; }
+.online-dot { position: absolute; right: -1px; bottom: -1px; border-radius: 50%; background: #22a06b; box-shadow: 0 0 0 2px #fff; pointer-events: none; }
 .avatar.more { background: #dfe1e6; color: #44546f; }
 .avatar.pending { width: 32px; height: 32px; background: #e9f2ff; color: #0c66e4; font-size: 15px; }
 .avatar-stack { display: inline-flex; }
@@ -1153,3 +1155,6 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 .tv-creator { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .tv-creator span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 720px) { .cw-created { margin-left: 0; } }
+/* online owner: star moves to the top so the green dot stays visible */
+.owner-avatar:has(.online-dot)::after { top: -3px; bottom: auto; }
+.owner-avatar.sm:has(.online-dot)::after { top: -2px; }

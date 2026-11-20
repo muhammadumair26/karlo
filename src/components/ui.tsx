@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { Person, Role } from '../lib/types';
 import { ROLE_INFO } from '../lib/types';
+import { useOnline } from '../lib/presence';
 
 const AVATAR_COLORS = ['#2563eb', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626', '#db2777', '#4f46e5'];
 
@@ -29,16 +30,22 @@ export function Avatar({
   title?: string;
   src?: string | null;
 }) {
-  if (src) {
-    return <img className="avatar photo" src={src} alt={name} title={title ?? name} width={size} height={size} loading="lazy" style={{ width: size, height: size }} />;
-  }
-  return (
-    <span
-      className="avatar"
-      title={title ?? name}
-      style={{ width: size, height: size, fontSize: size * 0.4, background: colorFor(id || name) }}
-    >
+  const isOnline = useOnline(id);
+  const label = (title ?? name) + (isOnline ? ' · Active now' : '');
+  const face = src ? (
+    <img className="avatar photo" src={src} alt={name} title={label} width={size} height={size} loading="lazy" style={{ width: size, height: size }} />
+  ) : (
+    <span className="avatar" title={label} style={{ width: size, height: size, fontSize: size * 0.4, background: colorFor(id || name) }}>
       {initials(name)}
+    </span>
+  );
+  if (!isOnline) return face;
+  // Green "active now" dot, like Trello / Slack.
+  const dot = Math.max(8, Math.round(size * 0.3));
+  return (
+    <span className="avatar-wrap">
+      {face}
+      <span className="online-dot" style={{ width: dot, height: dot }} aria-label="Active now" />
     </span>
   );
 }
