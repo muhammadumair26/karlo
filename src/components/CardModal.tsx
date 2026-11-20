@@ -29,6 +29,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from '
 import type { BoardActionBody } from '../lib/board';
 import { cardListId, uid } from '../lib/board';
 import { dueStatus, formatDate } from '../lib/filters';
+import { CardAI } from './CardAI';
 import { CardExpenses, type ExpensesState } from './ExpensesView';
 import type { Attachment, BoardData, Card, CardLocation, Me, Person, Priority } from '../lib/types';
 import { LABEL_COLORS, PRIORITIES, boardSettings } from '../lib/types';
@@ -809,6 +810,7 @@ export function CardModal({
               <button className={`cw-btn ${pop === 'attachment' ? 'on' : ''}`} onClick={() => toggle('attachment')}>
                 <Paperclip size={16} /> Attachment
               </button>
+              <CardAI boardId={boardId} card={card} me={me} editable={editable} dispatch={dispatch} />
               {expenseState?.settings && (
                 <button className="cw-btn" onClick={() => setAddingExpense(true)} title="Record money spent on this card (partners only)">
                   <Wallet size={16} /> Expense
