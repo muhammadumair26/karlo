@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { supabase } from '../supabase';
 
-const appUrl = () => window.location.origin + window.location.pathname;
+import { isNativeApp, publicOrigin } from '../lib/platform';
+
+// Email links (confirm / reset) must open the website, even when sent from the phone app.
+const appUrl = () => (isNativeApp ? publicOrigin() + '/' : window.location.origin + window.location.pathname);
 
 type Mode = 'signin' | 'signup' | 'forgot';
 

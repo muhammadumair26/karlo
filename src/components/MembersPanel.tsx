@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import * as api from '../lib/api';
 import type { Me, Person, Role } from '../lib/types';
 import { ROLE_INFO } from '../lib/types';
+import { publicOrigin } from '../lib/platform';
 import { Avatar, RoleSelect } from './ui';
 
 /** Member list + invite form for a workspace or a single board. */
@@ -55,7 +56,7 @@ export function MembersPanel({
         text:
           res === 'added'
             ? `${addr} now has access as ${ROLE_INFO[role].label}.`
-            : `Invite saved. Ask ${addr} to sign up at ${window.location.origin} with this email — they'll get access automatically.`,
+            : `Invite saved. Ask ${addr} to sign up at ${publicOrigin()} with this email — they'll get access automatically.`,
       });
       setEmail('');
       await reload();

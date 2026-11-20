@@ -1,5 +1,6 @@
 import { Bell, BellRing, CheckCheck, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { loadNotifications, markRead, markUnread, type NotificationRow } from '../lib/notify';
 import { supabase } from '../supabase';
 import { Avatar, timeAgo } from './ui';
@@ -89,7 +90,9 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
         {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
       </button>
 
-      {open && (
+      {/* Rendered at the page root: the top bar's blur (on photo backgrounds) would otherwise trap this fixed panel inside the bar. */}
+      {open &&
+        createPortal(
         <>
           <div className="notif-scrim" onClick={() => setOpen(false)} />
           <aside className="notif-panel" role="dialog" aria-label="Notifications">
@@ -182,7 +185,8 @@ export function NotificationsBell({ userId, onOpenCard }: { userId: string; onOp
               )}
             </div>
           </aside>
-        </>
+        </>,
+        document.body,
       )}
     </>
   );

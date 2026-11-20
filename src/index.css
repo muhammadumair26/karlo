@@ -920,3 +920,19 @@ button.stat:hover { outline: 2px solid #388bff; }
 /* Logo icon is transparent around its outline — no white tile behind it. */
 .brand-logo { background: transparent; border-radius: 0; width: 30px; height: 30px; }
 .loading-logo img { background: transparent; border-radius: 0; }
+
+/* ---------- Phone app (Capacitor): respect notch / home indicator ---------- */
+.native-app .topbar { padding-top: max(8px, env(safe-area-inset-top)); }
+.native-app .board-canvas, .native-app .tv-wrap, .native-app .calendar, .native-app .dashboard, .native-app .timeline, .native-app .mapview { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+.native-app .notif-panel { top: calc(52px + env(safe-area-inset-top)); bottom: max(8px, env(safe-area-inset-bottom)); }
+.native-app .modal-backdrop { padding-top: max(40px, env(safe-area-inset-top)); }
+.native-app .modal-backdrop:has(.card-window) { padding-top: env(safe-area-inset-top); }
+.native-app { -webkit-tap-highlight-color: transparent; }
+
+/* Blur lives on a background layer, not the bar itself: a backdrop-filter on the bar would
+   become the containing block for fixed pop-ups inside it (notifications, switcher) and hide them. */
+body:has(.board-bg) .topbar { backdrop-filter: none; }
+body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0; z-index: -1; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); pointer-events: none; }
+.board-header.on-photo { backdrop-filter: none; isolation: isolate; }
+.board-header.on-photo::before { content: ''; position: absolute; inset: 0; z-index: -1; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); pointer-events: none; }
+@media (max-width: 720px) { .switcher .switch-panel { position: fixed; top: 56px; left: 8px; right: 8px; width: auto; } }

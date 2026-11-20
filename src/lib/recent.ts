@@ -25,13 +25,15 @@ export function rememberCard(r: Omit<RecentCard, 'at'>) {
   }
 }
 
+import { publicOrigin, WEB_URL } from './platform';
+
 /** A link that opens a card inside Karlo. */
-export const cardLink = (boardId: string, cardId: string) => `${window.location.origin}/?board=${boardId}&card=${cardId}`;
+export const cardLink = (boardId: string, cardId: string) => `${publicOrigin()}/?board=${boardId}&card=${cardId}`;
 
 export function parseCardLink(href: string): { boardId: string; cardId: string } | null {
   try {
     const u = new URL(href, window.location.origin);
-    if (u.origin !== window.location.origin) return null;
+    if (u.origin !== window.location.origin && u.origin !== WEB_URL) return null;
     const boardId = u.searchParams.get('board');
     const cardId = u.searchParams.get('card');
     return boardId && cardId ? { boardId, cardId } : null;
