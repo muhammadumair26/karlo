@@ -1138,6 +1138,10 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 .avatar-stack > .owner-avatar + :not(.owner-avatar) { margin-left: 4px; }
 .avatar-stack > .owner-avatar + .owner-avatar { margin-left: 2px; }
 .owner-avatar.sm::after { content: '★'; font-size: 8px; line-height: 11px; width: 11px; height: 11px; right: -2px; bottom: -2px; }
+.pop-sub { margin: 10px 0 4px; font-size: 12px; font-weight: 600; color: #626f86; }
+.guest-row { cursor: default; }
+.guest-remove { margin-left: auto; width: 28px; height: 28px; color: #626f86; }
+.guest-remove:hover { color: #ae2e24; background: #ffeceb; }
 .menu > button:disabled { opacity: .45; cursor: not-allowed; }
 .member-option:disabled { opacity: .55; cursor: not-allowed; }
 /* table: six columns */

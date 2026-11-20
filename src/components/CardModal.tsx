@@ -478,6 +478,25 @@ export function CardModal({
               </button>
             ))}
             {people.length === 0 && <p className="muted">Invite people with Share first.</p>}
+            {card.guests.length > 0 && (
+              <>
+                <h5 className="pop-sub">Imported (not linked to an account)</h5>
+                {card.guests.map((g) => (
+                  <div key={g} className="member-option guest-row">
+                    <Avatar id={'guest:' + g} name={g} size={28} />
+                    <span className="member-option-text">{g}</span>
+                    <button
+                      className="icon-btn guest-remove"
+                      title={`Remove ${g} from this card`}
+                      aria-label={`Remove ${g} from this card`}
+                      onClick={() => update({ guests: card.guests.filter((x) => x !== g) }, `removed ${g} (imported) from {card}`)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
           </Popover>
         );
       case 'location':
@@ -861,9 +880,15 @@ export function CardModal({
                         <Avatar key={id} id={id} name={p?.name ?? 'Former member'} src={p?.avatar_url} size={32} />
                       );
                     })}
-                    {card.guests.map((g) => (
-                      <Avatar key={g} id={'guest:' + g} name={g} size={32} title={`${g} (imported — link via board menu)`} />
-                    ))}
+                    {card.guests.map((g) =>
+                      editable ? (
+                        <button key={g} className="header-avatar" title={`${g} (imported) — click to remove`} onMouseDown={(e) => e.stopPropagation()} onClick={() => toggle('members')}>
+                          <Avatar id={'guest:' + g} name={g} size={32} />
+                        </button>
+                      ) : (
+                        <Avatar key={g} id={'guest:' + g} name={g} size={32} title={`${g} (imported)`} />
+                      ),
+                    )}
                     {editable && (
                       <button className="round-add" onMouseDown={(e) => e.stopPropagation()} onClick={() => toggle('members')} aria-label="Add member">
                         <Plus size={16} />
