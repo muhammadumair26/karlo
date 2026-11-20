@@ -12,6 +12,7 @@ export const METRICS: { id: DashboardMetric; label: string }[] = [
   { id: 'list', label: 'Cards per list' },
   { id: 'label', label: 'Cards per label' },
   { id: 'member', label: 'Cards per member' },
+  { id: 'owner', label: 'Cards per owner (creator)' },
   { id: 'due', label: 'Cards per due date' },
   { id: 'priority', label: 'Cards per priority' },
   { id: 'status', label: 'Completed vs open' },
@@ -53,6 +54,8 @@ function categoriesOf(metric: DashboardMetric, c: Card, listId: string): string[
       const ids = [...c.assignees, ...c.guests.map((g) => 'guest:' + g)];
       return ids.length ? ids : ['__none'];
     }
+    case 'owner':
+      return c.owners?.length ? c.owners : ['__none'];
     case 'due':
       return [dueStatus(c) ?? 'none'];
     case 'priority':
@@ -92,6 +95,15 @@ export function categories(metric: DashboardMetric, data: BoardData, people: Map
       return [
         ...sorted.map((id, i) => ({ key: id, label: nameOf(id, people), color: SERIES[i] ?? OTHER })),
         { key: '__none', label: 'Unassigned', color: OTHER },
+      ];
+    }
+    case 'owner': {
+      const ids = new Set<string>();
+      for (const c of Object.values(data.cards)) (c.owners ?? []).forEach((id) => ids.add(id));
+      const sorted = [...ids].sort((a, b) => nameOf(a, people).localeCompare(nameOf(b, people)));
+      return [
+        ...sorted.map((id, i) => ({ key: id, label: nameOf(id, people), color: SERIES[i] ?? OTHER })),
+        { key: '__none', label: 'No owner (imported)', color: OTHER },
       ];
     }
     case 'due':

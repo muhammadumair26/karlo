@@ -1120,3 +1120,20 @@ body:has(.board-bg) .topbar::before { content: ''; position: absolute; inset: 0;
 @media (max-width: 720px) {
   .sidebar, body:has(.board-bg) .sidebar { background: #111a2e !important; backdrop-filter: none; }
 }
+
+/* ---------- Card owners ---------- */
+.cw-created { margin: 2px 0 0 32px; font-size: 13px; color: #626f86; }
+.cw-created .act-link { font-size: 13px; color: #0c66e4; }
+.owner-avatar { position: relative; display: inline-flex; }
+.owner-avatar::after { content: '★'; position: absolute; right: -3px; bottom: -3px; font-size: 10px; line-height: 14px; width: 14px; height: 14px; text-align: center; border-radius: 50%; background: #f5cd47; color: #172b4d; box-shadow: 0 0 0 2px #fff; }
+.menu > button:disabled { opacity: .45; cursor: not-allowed; }
+.member-option:disabled { opacity: .55; cursor: not-allowed; }
+/* table: six columns */
+.tv th:nth-child(1) { width: 27%; }
+.tv th:nth-child(2) { width: 16%; }
+.tv th:nth-child(3) { width: 14%; }
+.tv th:nth-child(4) { width: 13%; }
+.tv th:nth-child(5) { width: 16%; }
+.tv-creator { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.tv-creator span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 720px) { .cw-created { margin-left: 0; } }

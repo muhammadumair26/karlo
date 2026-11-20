@@ -77,6 +77,7 @@ export interface Card {
   description: string;
   labelIds: string[];
   assignees: string[]; // user ids
+  owners: string[]; // user ids — the creator by default; owners can add co-owners
   guests: string[]; // names of imported people not (yet) linked to a Karlo account
   completed: boolean;
   priority: Priority;
@@ -120,7 +121,7 @@ export interface BoardData {
   dashboard: DashboardTile[] | null; // null = default tiles
 }
 
-export type DashboardMetric = 'list' | 'label' | 'member' | 'due' | 'priority' | 'status';
+export type DashboardMetric = 'list' | 'label' | 'member' | 'owner' | 'due' | 'priority' | 'status';
 export type DashboardChart = 'bar' | 'pie' | 'line';
 export interface DashboardTile {
   id: string;

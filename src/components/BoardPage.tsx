@@ -422,6 +422,7 @@ export function BoardPage({
           <select value={filters.assignee} onChange={(e) => setFilters({ ...filters, assignee: e.target.value })}>
             <option value="">Anyone</option>
             <option value="me">Assigned to me</option>
+            <option value="owned">Created / owned by me</option>
             <option value="none">Unassigned</option>
             {people.map((p) => (
               <option key={p.user_id} value={p.user_id}>
@@ -492,6 +493,7 @@ export function BoardPage({
       {openCard && data && (
         <CardModal
           key={openCard.id}
+          isAdmin={admin}
           onPersonClick={(person, el) => openMember(person, el)}
           boardId={meta.id}
           boardTitle={meta.title}

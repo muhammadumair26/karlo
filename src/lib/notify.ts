@@ -58,7 +58,8 @@ export function notificationsFor(before: BoardData, a: BoardActionBody, me: Me, 
       out.push({ ...base, user_id: id, kind, body });
     }
   };
-  const members = card.assignees;
+  // Members and owners (creator + co-owners) hear about activity on the card.
+  const members = [...new Set([...card.assignees, ...(card.owners ?? [])])];
 
   if (a.type === 'ADD_COMMENT') {
     send(mentionedIds(a.comment.text, people), 'mention', `Mentioned you: “${snippet(a.comment.text)}”`);
@@ -73,6 +74,9 @@ export function notificationsFor(before: BoardData, a: BoardActionBody, me: Me, 
     const p = a.patch;
     if (p.assignees) {
       send(p.assignees.filter((id) => !card.assignees.includes(id)), 'assigned', 'Added you to this card');
+    }
+    if (p.owners) {
+      send(p.owners.filter((id) => !(card.owners ?? []).includes(id)), 'assigned', 'Made you an owner of this card');
     }
     if (p.description !== undefined) {
       const was = new Set(mentionedIds(card.description, people));

@@ -39,6 +39,7 @@ export function newCard(id: string, title: string, by: string, at: number, extra
     description: '',
     labelIds: [],
     assignees: [],
+    owners: /^[0-9a-f-]{36}$/i.test(by) ? [by] : [],
     guests: [],
     completed: false,
     priority: 'none',
@@ -79,6 +80,7 @@ export function normalize(raw: unknown): BoardData {
     cards[id] = newCard(id, c.title ?? 'Untitled', c.createdBy ?? '', c.createdAt ?? Date.now(), {
       ...c,
       guests,
+      owners: Array.isArray(c.owners) ? c.owners : c.createdBy && /^[0-9a-f-]{36}$/i.test(c.createdBy) ? [c.createdBy] : [],
       completed: !!c.completed,
       labelIds: c.labelIds ?? [],
       assignees: c.assignees ?? [],

@@ -8,7 +8,7 @@ import type { BoardData, Card, Person } from '../lib/types';
 import { LABEL_COLORS } from '../lib/types';
 import { Avatar } from './ui';
 
-type SortKey = 'title' | 'list' | 'labels' | 'members' | 'due';
+type SortKey = 'title' | 'list' | 'labels' | 'members' | 'created' | 'due';
 
 /** Trello-style table: Card · List · Labels · Members · Due date, editable in place. */
 export function TableView({
@@ -60,6 +60,9 @@ export function TableView({
       case 'members':
         r = name(a.c).localeCompare(name(b.c));
         break;
+      case 'created':
+        r = (people.get(a.c.createdBy)?.name ?? '~').localeCompare(people.get(b.c.createdBy)?.name ?? '~') || a.c.createdAt - b.c.createdAt;
+        break;
       case 'due':
         r = (a.c.due ?? '9999').localeCompare(b.c.due ?? '9999');
         break;
@@ -93,6 +96,7 @@ export function TableView({
               {th('list', 'List')}
               {th('labels', 'Labels')}
               {th('members', 'Members')}
+              {th('created', 'Created by')}
               {th('due', 'Due date')}
             </tr>
           </thead>
@@ -173,6 +177,16 @@ export function TableView({
                       <span className="tv-dot">·</span>
                     )}
                   </td>
+                  <td className="tv-created" title={new Date(c.createdAt).toLocaleString()}>
+                    {people.get(c.createdBy) ? (
+                      <span className="tv-creator">
+                        <Avatar id={c.createdBy} name={people.get(c.createdBy)!.name} src={people.get(c.createdBy)!.avatar_url} size={22} />
+                        <span>{people.get(c.createdBy)!.name}</span>
+                      </span>
+                    ) : (
+                      <span className="tv-dot">{c.createdBy === 'import' ? 'Imported' : '·'}</span>
+                    )}
+                  </td>
                   <td>
                     {editable ? (
                       <label className={`tv-date ${c.due ? `due-${status}` : 'empty'}`}>
@@ -195,7 +209,7 @@ export function TableView({
             })}
             {adding && editable && (
               <tr className="tv-new">
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <form
                     className="tv-new-form"
                     onSubmit={(e) => {
@@ -221,7 +235,7 @@ export function TableView({
             )}
             {rows.length === 0 && !adding && (
               <tr>
-                <td colSpan={5} className="muted empty-row">
+                <td colSpan={6} className="muted empty-row">
                   No cards to show.
                 </td>
               </tr>

@@ -38,8 +38,9 @@ export function matches(c: Card, f: Filters, meId: string) {
     if (!c.title.toLowerCase().includes(q) && !c.description.toLowerCase().includes(q)) return false;
   }
   if (f.assignee === 'me' && !c.assignees.includes(meId)) return false;
+  if (f.assignee === 'owned' && !(c.owners ?? []).includes(meId)) return false;
   if (f.assignee === 'none' && c.assignees.length > 0) return false;
-  if (f.assignee && !['me', 'none'].includes(f.assignee) && !c.assignees.includes(f.assignee)) return false;
+  if (f.assignee && !['me', 'none', 'owned'].includes(f.assignee) && !c.assignees.includes(f.assignee)) return false;
   if (f.labelId && !c.labelIds.includes(f.labelId)) return false;
   if (f.priority && c.priority !== f.priority) return false;
   if (f.due) {
