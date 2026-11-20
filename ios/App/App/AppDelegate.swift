@@ -112,7 +112,7 @@ class KarloContainerViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black // reads as part of the phone's frame, whatever board background is showing
+        view.backgroundColor = .systemBackground // follows the phone: white in light mode, black in dark mode
         addChild(karlo)
         view.addSubview(karlo.view)
         karlo.didMove(toParent: self)
@@ -125,9 +125,10 @@ class KarloContainerViewController: UIViewController {
     }
 
     private var hasSideStrip: Bool { view.safeAreaInsets.left > 0 || view.safeAreaInsets.right > 0 }
-    // With a side strip (iPhone Duo) the clock sits on the black strip, so keep it white; otherwise the page decides.
+    // With a side strip (iPhone Duo) the clock sits on the strip, so it follows the phone's light/dark mode too;
+    // otherwise the page decides.
     override var childForStatusBarStyle: UIViewController? { hasSideStrip ? nil : karlo }
-    override var preferredStatusBarStyle: UIStatusBarStyle { .lightContent }
+    override var preferredStatusBarStyle: UIStatusBarStyle { .default }
     override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         setNeedsStatusBarAppearanceUpdate()
