@@ -108,7 +108,14 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   useEffect(() => {
-    void api.isPlatformAdmin().then(setIsAdmin);
+    void api.isPlatformAdmin().then((yes) => {
+      setIsAdmin(yes);
+      // karlo.orionsoftsol.com/?admin opens the admin panel straight away
+      if (yes && new URLSearchParams(window.location.search).has('admin')) {
+        window.history.replaceState(null, '', window.location.pathname);
+        setAdminOpen(true);
+      }
+    });
   }, []);
   const [boards, setBoards] = useState<BoardMeta[]>([]);
   const [activeId, setActiveId] = useState<string | null>(() => {
