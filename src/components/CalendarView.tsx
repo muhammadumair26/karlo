@@ -1,4 +1,6 @@
+import { CalendarPlus } from 'lucide-react';
 import { useState } from 'react';
+import { CalendarSyncModal } from './CalendarSync';
 import type { Filters } from '../lib/filters';
 import { dueStatus, matches } from '../lib/filters';
 import type { BoardData, Card } from '../lib/types';
@@ -22,6 +24,7 @@ export function CalendarView({
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
+  const [sync, setSync] = useState(false);
   const labels = new Map(data.labels.map((l) => [l.id, l]));
   const activeListCards = new Set(
     data.listOrder.filter((id) => !data.lists[id]?.archived).flatMap((id) => data.lists[id]?.cardIds ?? []),
@@ -70,6 +73,11 @@ export function CalendarView({
           Today
         </button>
         {undated > 0 && <span className="cal-note">{undated} card(s) without a due date</span>}
+        <span className="header-spacer" />
+        <button className="btn translucent cal-sync" onClick={() => setSync(true)} title="Show your due dates in Google Calendar">
+          <CalendarPlus size={15} /> Sync with Google Calendar
+        </button>
+        {sync && <CalendarSyncModal onClose={() => setSync(false)} />}
       </div>
       <div className="cal-grid">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (

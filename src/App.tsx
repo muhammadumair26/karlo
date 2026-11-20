@@ -9,6 +9,7 @@ import { SearchBar } from './components/SearchBar';
 import { Sidebar } from './components/Sidebar';
 import { Avatar, download, Menu, Modal } from './components/ui';
 import { ProfileModal } from './components/ProfileModal';
+import { CalendarSyncModal } from './components/CalendarSync';
 import { WorkspaceModal } from './components/WorkspaceModal';
 import * as api from './lib/api';
 import { starterBoard, uid } from './lib/board';
@@ -81,6 +82,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
   const [importOpen, setImportOpen] = useState(false);
   const [newWsOpen, setNewWsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [calSync, setCalSync] = useState(false);
   const [profileModal, setProfileModal] = useState(false);
   const [starred, setStarred] = useState<string[]>(() => {
     try {
@@ -311,6 +313,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
               </div>
             </div>
             <button onClick={() => (setProfileOpen(false), setProfileModal(true))}>Edit profile & password</button>
+            <button onClick={() => (setProfileOpen(false), setCalSync(true))}>Sync with Google Calendar</button>
             <button onClick={() => supabase?.auth.signOut()}>Sign out</button>
           </Menu>
         </span>
@@ -403,6 +406,7 @@ function Home({ userId, email }: { userId: string; email: string }) {
           }}
         />
       )}
+      {calSync && <CalendarSyncModal onClose={() => setCalSync(false)} />}
       {profileModal && (
         <ProfileModal
           me={me}
