@@ -220,6 +220,12 @@ input, textarea { font: inherit; color: inherit; }
 .auth-card .btn:disabled { opacity: .6; cursor: default; }
 .auth-error { color: #ae2e24; background: #ffeceb; padding: 8px; border-radius: 6px; font-size: 13px; }
 .auth-info { color: #216e4e; background: #dcfff1; padding: 8px; border-radius: 6px; font-size: 13px; }
+.pw-field { position: relative; display: flex; }
+.pw-field input { flex: 1; min-width: 0; padding-right: 42px; }
+.pw-eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; display: grid; place-items: center; border: none; background: none; color: #626f86; border-radius: 4px; cursor: pointer; }
+.pw-eye:hover { color: #172b4d; background: #f1f2f4; }
+.remember { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #44546f; cursor: pointer; user-select: none; }
+.auth-card .remember input { width: 16px; height: 16px; padding: 0; margin: 0; accent-color: #0c66e4; }
 .auth-switch { border: none; background: none; color: #0c66e4; padding: 4px; }
 .auth-switch:hover { text-decoration: underline; }
 

@@ -1,10 +1,33 @@
+import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
-import { supabase } from '../supabase';
+import { REMEMBER_KEY, rememberMe, supabase } from '../supabase';
 
 import { isNativeApp, publicOrigin } from '../lib/platform';
 
 // Email links (confirm / reset) must open the website, even when sent from the phone app.
 const appUrl = () => (isNativeApp ? publicOrigin() + '/' : window.location.origin + window.location.pathname);
+
+const EMAIL_KEY = 'karlo-last-email';
+const savedEmail = () => {
+  try {
+    return rememberMe() ? localStorage.getItem(EMAIL_KEY) ?? '' : '';
+  } catch {
+    return '';
+  }
+};
+
+/** Password box with a show/hide eye button. */
+function PasswordInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="pw-field">
+      <input {...props} type={show ? 'text' : 'password'} />
+      <button type="button" className="pw-eye" onClick={() => setShow(!show)} aria-label={show ? 'Hide password' : 'Show password'} title={show ? 'Hide password' : 'Show password'}>
+        {show ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </div>
+  );
+}
 
 type Mode = 'signin' | 'signup' | 'forgot';
 
@@ -18,9 +41,10 @@ const SUBMIT: Record<Mode, string> = { signin: 'Sign in', signup: 'Sign up', for
 
 export function AuthScreen() {
   const [mode, setMode] = useState<Mode>('signin');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(savedEmail);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [remember, setRemember] = useState(rememberMe);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -42,6 +66,14 @@ export function AuthScreen() {
       return;
     }
     setBusy(true);
+    // Decide where the session is stored before signing in, and remember (or forget) the email.
+    try {
+      localStorage.setItem(REMEMBER_KEY, remember ? '1' : '0');
+      if (remember) localStorage.setItem(EMAIL_KEY, email.trim());
+      else localStorage.removeItem(EMAIL_KEY);
+    } catch {
+      /* storage blocked */
+    }
     if (mode === 'signin') {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error)
@@ -95,8 +127,7 @@ export function AuthScreen() {
           onChange={(e) => setEmail(e.target.value)}
         />
         {mode !== 'forgot' && (
-          <input
-            type="password"
+          <PasswordInput
             placeholder={mode === 'signup' ? 'Password (min 6 characters)' : 'Password'}
             autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             minLength={mode === 'signup' ? 6 : undefined}
@@ -106,8 +137,7 @@ export function AuthScreen() {
           />
         )}
         {mode === 'signup' && (
-          <input
-            type="password"
+          <PasswordInput
             placeholder="Confirm password"
             autoComplete="new-password"
             minLength={6}
@@ -115,6 +145,12 @@ export function AuthScreen() {
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
           />
+        )}
+        {mode !== 'forgot' && (
+          <label className="remember">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            Remember me
+          </label>
         )}
         {error && <div className="auth-error">{error}</div>}
         {info && <div className="auth-info">{info}</div>}
@@ -169,8 +205,7 @@ export function SetPasswordScreen({ email, onDone }: { email: string; onDone: ()
         <img className="auth-wordmark" src={`${import.meta.env.BASE_URL}karlo-wordmark.png`} alt="Karlo" />
         <h2>Set your password</h2>
         <p className="muted">for {email}</p>
-        <input
-          type="password"
+        <PasswordInput
           placeholder="New password (min 6 characters)"
           autoComplete="new-password"
           minLength={6}
@@ -178,8 +213,7 @@ export function SetPasswordScreen({ email, onDone }: { email: string; onDone: ()
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <input
-          type="password"
+        <PasswordInput
           placeholder="Confirm password"
           autoComplete="new-password"
           minLength={6}
