@@ -666,6 +666,9 @@ body:has(.board-bg) .sidebar { background: rgba(10,15,30,.55); backdrop-filter: 
 .comment-box.open .mention-wrap textarea { height: 96px; resize: vertical; }
 .comment-box .mention-wrap textarea:focus { outline: 2px solid #388bff; border-color: transparent; }
 .mention-wrap .mention-list { position: absolute; left: 0; right: auto; min-width: 260px; top: calc(100% + 4px); z-index: 40; }
+.mention-wrap .mention-list { overflow-y: auto; -webkit-overflow-scrolling: touch; max-width: calc(100vw - 32px); }
+.mention-wrap .mention-list.up { top: auto; bottom: calc(100% + 4px); flex-direction: column-reverse; }
+.mention-wrap .mention-list.up .mention-hint { border-bottom: none; border-top: 1px solid #ebecf0; margin: 2px 0 0; padding: 6px 8px 4px; }
 .mention-hint { font-size: 11px; color: #626f86; padding: 4px 8px 6px; border-bottom: 1px solid #ebecf0; margin-bottom: 2px; }
 .mention-list button.on { background: #e9f2ff; }
 .mention-list button:first-child { background: none; }

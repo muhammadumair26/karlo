@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { handleOf } from '../lib/notify';
 import type { Person } from '../lib/types';
 import { Avatar } from './ui';
@@ -30,6 +30,36 @@ export const MentionInput = forwardRef<
   useImperativeHandle(ref, () => inner.current as El);
   const [query, setQuery] = useState<string | null>(null);
   const [active, setActive] = useState(0);
+  const wrap = useRef<HTMLDivElement>(null);
+  // Where the list fits: below the box, or above it when the phone keyboard leaves no room underneath.
+  const [place, setPlace] = useState<{ up: boolean; max: number }>({ up: false, max: 320 });
+  const open = query !== null;
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const el = wrap.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const vv = window.visualViewport; // excludes the on-screen keyboard on phones
+      const top = vv ? vv.offsetTop : 0;
+      const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const below = bottom - r.bottom - 12;
+      const above = r.top - top - 12;
+      const up = below < 220 && above > below;
+      setPlace({ up, max: Math.max(120, Math.min(320, up ? above : below)) });
+    };
+    measure();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', measure);
+    vv?.addEventListener('scroll', measure);
+    window.addEventListener('resize', measure);
+    return () => {
+      vv?.removeEventListener('resize', measure);
+      vv?.removeEventListener('scroll', measure);
+      window.removeEventListener('resize', measure);
+    };
+  }, [open]);
 
   const others = people.filter((p) => p.user_id !== meId);
   const matches =
@@ -104,14 +134,14 @@ export const MentionInput = forwardRef<
   };
 
   return (
-    <div className={`mention-wrap ${className ?? ''}`}>
+    <div ref={wrap} className={`mention-wrap ${className ?? ''}`}>
       {multiline ? (
         <textarea ref={inner as React.RefObject<HTMLTextAreaElement>} {...common} />
       ) : (
         <input ref={inner as React.RefObject<HTMLInputElement>} {...common} />
       )}
       {query !== null && (
-        <div className="mention-list" onMouseDown={(e) => e.preventDefault()}>
+        <div className={`mention-list${place.up ? ' up' : ''}`} style={{ maxHeight: place.max }} onMouseDown={(e) => e.preventDefault()}>
           <div className="mention-hint">Mention someone — they'll be notified</div>
           {matches.map((p, i) => (
             <button key={p.user_id} className={i === active ? 'on' : ''} onMouseEnter={() => setActive(i)} onClick={() => insert(p)}>
