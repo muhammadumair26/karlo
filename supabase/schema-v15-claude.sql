@@ -112,3 +112,14 @@ do $$ begin
     alter publication supabase_realtime add table public.claude_tasks;
   end if;
 end $$;
+
+-- Folder list from the Mac helper, so projects can be picked instead of typing a path.
+alter table public.claude_runner_keys add column if not exists folders jsonb not null default '[]'::jsonb;
+create or replace function public.claude_runner_folders(p_key text, p_folders jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+declare u uuid := claude_runner_user(p_key);
+begin
+  if u is null then raise exception 'Unknown key'; end if;
+  update claude_runner_keys set folders = coalesce(p_folders, '[]'::jsonb), last_seen_at = now() where user_id = u;
+end $$;
+grant execute on function public.claude_runner_folders(text, jsonb) to anon, authenticated;

@@ -6,6 +6,7 @@
 //
 //   node ~/.karlo/claude-runner.mjs --setup <key>   save the key from Karlo and start on every login
 //   node ~/.karlo/claude-runner.mjs --status        is it set up / running?
+//   node ~/.karlo/claude-runner.mjs --folders       list the project folders Karlo will offer
 //   node ~/.karlo/claude-runner.mjs --uninstall     stop it and remove the login item
 //   node ~/.karlo/claude-runner.mjs                 run in this Terminal (what the login item does)
 //
@@ -63,6 +64,60 @@ async function rpc(conf, name, body) {
   const text = await res.text();
   if (!res.ok) throw new Error(`${name}: ${res.status} ${text.slice(0, 300)}`);
   return text ? JSON.parse(text) : null;
+}
+
+// ---- project folders on this Mac (so Karlo can offer a list instead of asking for a path)
+const ROOTS = ['Desktop', 'Documents', 'Projects', 'projects', 'Developer', 'Code', 'code', 'dev', 'src', 'repos', 'GitHub', 'Sites', 'workspace'];
+const MARKERS = ['.git', 'package.json', 'pubspec.yaml', 'Cargo.toml', 'go.mod', 'pyproject.toml', 'composer.json', 'Gemfile', 'pom.xml', 'build.gradle'];
+const SKIP = new Set(['node_modules', 'Library', 'build', 'dist', 'Pods', 'vendor', 'venv', '.venv', 'DerivedData', 'android', 'ios', 'macos', 'windows', 'linux', 'web']);
+
+function scanFolders() {
+  const found = [];
+  const seen = new Set();
+  const walk = (dir, depth) => {
+    if (depth > 3 || found.length >= 300) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return; // no permission / gone
+    }
+    const names = new Set(entries.map((e) => e.name));
+    if (depth > 0 && MARKERS.some((m) => names.has(m))) {
+      let real = dir;
+      try {
+        real = fs.realpathSync(dir);
+      } catch {
+        /* ignore */
+      }
+      if (!seen.has(real.toLowerCase())) {
+        seen.add(real.toLowerCase()); // the Mac's disk ignores upper/lower case: Code and code are one folder
+        let mtime = 0;
+        try {
+          mtime = fs.statSync(dir).mtimeMs;
+        } catch {
+          /* ignore */
+        }
+        found.push({ name: path.basename(real), path: real, git: names.has('.git'), mtime });
+      }
+      if (names.has('.git')) return; // a repo: don't list its sub-folders separately
+    }
+    for (const e of entries) {
+      if (!e.isDirectory() || e.name.startsWith('.') || SKIP.has(e.name)) continue;
+      walk(path.join(dir, e.name), depth + 1);
+    }
+  };
+  for (const r of ROOTS) {
+    const d = path.join(os.homedir(), r);
+    if (fs.existsSync(d)) walk(d, 0);
+  }
+  return found.sort((a, b) => b.mtime - a.mtime).map(({ name, path: p, git }) => ({ name, path: p, git }));
+}
+
+async function reportFolders(conf) {
+  const folders = scanFolders();
+  await rpc(conf, 'claude_runner_folders', { p_key: conf.key, p_folders: folders });
+  return folders.length;
 }
 
 const update = (conf, id, status, extra = {}) =>
@@ -165,7 +220,15 @@ async function loop() {
   }
   log(`Karlo Claude helper running (Claude Code: ${conf.claudePath}). Checking for tasks every ${POLL_MS / 1000}s.`);
   let lastErr = '';
+  let lastScan = 0;
   for (;;) {
+    if (Date.now() - lastScan > 10 * 60_000) {
+      lastScan = Date.now();
+      await reportFolders(conf).then(
+        (n) => log(`Sent Karlo a list of ${n} project folders.`),
+        (e) => log(`Could not send the folder list: ${e.message}`),
+      );
+    }
     try {
       const tasks = (await rpc(conf, 'claude_runner_poll', { p_key: conf.key })) ?? [];
       lastErr = '';
@@ -263,7 +326,9 @@ if (flag === '--setup') {
     console.error(`The key didn't work: ${e.message}`);
     process.exit(1);
   }
+  const n = await reportFolders(conf).catch(() => 0);
   installLoginItem();
+  console.log(`✓ Found ${n} project folders — pick one in Karlo (Ask Claude → Projects & Mac).`);
   console.log('✓ Connected to Karlo. The helper now runs in the background and starts whenever you log in.');
   console.log(`  Claude Code: ${claudePath}`);
   console.log(`  Log: ${LOG}`);
@@ -275,6 +340,8 @@ if (flag === '--setup') {
   }
   fs.rmSync(PLIST, { force: true });
   console.log('Stopped. The helper no longer starts at login.');
+} else if (flag === '--folders') {
+  for (const f of scanFolders()) console.log(`${f.name.padEnd(28)} ${f.path}`);
 } else if (flag === '--status') {
   status();
 } else {

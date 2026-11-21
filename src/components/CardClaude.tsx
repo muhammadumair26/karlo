@@ -14,6 +14,8 @@ import {
   type ClaudeProject,
   type ClaudeStatus,
   type ClaudeTask,
+  type MacFolder,
+  type MacState,
 } from '../lib/claude';
 import { useSignedUrls } from '../lib/files';
 import type { Card } from '../lib/types';
@@ -88,25 +90,38 @@ function TaskRow({ t }: { t: ClaudeTask }) {
   );
 }
 
-/** Projects and the Mac helper: add/remove project folders, connect the Mac. */
+/** Projects and the Mac helper: connect the Mac, then pick project folders from the list it sends. */
 function Setup({ projects, setProjects, onDone }: { projects: ClaudeProject[]; setProjects: (p: ClaudeProject[]) => void; onDone: () => void }) {
-  const [name, setName] = useState('');
-  const [path, setPath] = useState('');
   const [err, setErr] = useState<string | null>(null);
   const [key, setKey] = useState<string | null>(null);
-  const [mac, setMac] = useState<{ connected: boolean; lastSeen: string | null } | null>(null);
+  const [mac, setMac] = useState<MacState | null>(null);
+  const [q, setQ] = useState('');
+  const [picked, setPicked] = useState<MacFolder | null>(null);
+  const [name, setName] = useState('');
+  const [manual, setManual] = useState(false);
+  const [path, setPath] = useState('');
 
+  // Keep checking while this is open, so the list appears as soon as the Mac connects.
   useEffect(() => {
-    void runnerLastSeen().then(setMac);
-  }, [key]);
+    let live = true;
+    const load = () => void runnerLastSeen().then((m) => live && setMac(m));
+    load();
+    const t = window.setInterval(load, 4000);
+    return () => {
+      live = false;
+      window.clearInterval(t);
+    };
+  }, []);
 
-  const add = async () => {
+  const add = async (projName: string, projPath: string) => {
     setErr(null);
-    if (!name.trim() || !path.trim()) return setErr('Give the project a name and its folder on your Mac.');
-    if (!path.trim().startsWith('/')) return setErr('The folder should be a full path, like /Users/you/Projects/orion-souq');
+    if (!projName.trim()) return setErr('Give the project a name.');
+    if (!projPath.trim().startsWith('/')) return setErr('The folder should be a full path, like /Users/you/Projects/orion-souq');
+    if (projects.some((p) => p.path === projPath.trim())) return setErr('That folder is already a project.');
     try {
-      const p = await addProject(name, path);
+      const p = await addProject(projName, projPath);
       setProjects([...projects, p].sort((a, b) => a.name.localeCompare(b.name)));
+      setPicked(null);
       setName('');
       setPath('');
     } catch (e) {
@@ -114,20 +129,47 @@ function Setup({ projects, setProjects, onDone }: { projects: ClaudeProject[]; s
     }
   };
 
-  const online = mac?.lastSeen && Date.now() - new Date(mac.lastSeen).getTime() < 2 * 60000;
+  const online = !!mac?.lastSeen && Date.now() - new Date(mac.lastSeen).getTime() < 2 * 60000;
   const cmd = key ? `node ~/.karlo/claude-runner.mjs --setup ${key}` : '';
+  const used = new Set(projects.map((p) => p.path));
+  const folders = (mac?.folders ?? []).filter((f) => !used.has(f.path) && (!q || (f.name + ' ' + f.path).toLowerCase().includes(q.toLowerCase())));
+  const short = (p: string) => p.replace(/^\/Users\/[^/]+/, '~');
 
   return (
     <div className="ex-form cc">
-      <h5 className="bs-h">Projects</h5>
-      {projects.length === 0 && <p className="muted">No projects yet. Add the folders Claude should work in.</p>}
+      <h5 className="bs-h">1 · Your Mac</h5>
+      <p className="muted">
+        {mac === null
+          ? 'Checking…'
+          : !mac.connected
+            ? 'Not connected yet. Tap Connect my Mac, then run the command it shows once in Terminal.'
+            : online
+              ? '✓ Connected — your Mac is ready for tasks.'
+              : `Set up, but not checked in ${mac.lastSeen ? `since ${ago(mac.lastSeen)}` : 'yet'}. Is the Mac on?`}
+      </p>
+      {key ? (
+        <div className="cc-key">
+          <p className="muted">Run this once in Terminal on your Mac (the key is shown only now):</p>
+          <code>{cmd}</code>
+          <CopyText text={cmd} label="Copy command" />
+        </div>
+      ) : (
+        !online && (
+          <button type="button" className="btn" onClick={() => void newRunnerKey().then(setKey, (e: Error) => setErr(e.message))}>
+            <KeyRound size={14} /> {mac?.connected ? 'Make a new key' : 'Connect my Mac'}
+          </button>
+        )
+      )}
+
+      <h5 className="bs-h">2 · Projects</h5>
+      {projects.length === 0 && <p className="muted">No projects yet. Pick the folders Claude should work in.</p>}
       <div className="cc-projects">
         {projects.map((p) => (
           <div key={p.id} className="cc-project">
             <FolderGit2 size={16} />
             <span className="cc-project-text">
               <strong>{p.name}</strong>
-              <span className="muted">{p.path}</span>
+              <span className="muted">{short(p.path)}</span>
             </span>
             <button
               type="button"
@@ -140,40 +182,72 @@ function Setup({ projects, setProjects, onDone }: { projects: ClaudeProject[]; s
           </div>
         ))}
       </div>
-      <div className="cc-add">
-        <input placeholder="Name, e.g. Orion Souq" value={name} onChange={(e) => setName(e.target.value)} />
-        <input placeholder="Folder on your Mac, e.g. /Users/you/Projects/orion-souq" value={path} onChange={(e) => setPath(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add()} />
-        <button type="button" className="btn" onClick={() => void add()}>
-          <Plus size={14} /> Add project
-        </button>
-      </div>
-      {err && <div className="auth-error">{err}</div>}
 
-      <h5 className="bs-h">Your Mac</h5>
-      <p className="muted">
-        {mac === null
-          ? 'Checking…'
-          : !mac.connected
-            ? 'Not connected yet. Make a key and run the setup command once on your Mac.'
-            : online
-              ? 'Connected — your Mac is ready for tasks.'
-              : `Set up, but not checked in ${mac.lastSeen ? `since ${ago(mac.lastSeen)}` : 'yet'}. Is the Mac on?`}
-      </p>
-      {key ? (
-        <div className="cc-key">
-          <p className="muted">Run this once in Terminal on your Mac (the key is shown only now):</p>
-          <code>{cmd}</code>
-          <CopyText text={cmd} label="Copy command" />
+      {picked ? (
+        <div className="cc-picked">
+          <FolderGit2 size={16} />
+          <span className="cc-project-text">
+            <span className="muted">{short(picked.path)}</span>
+            <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Project name" onKeyDown={(e) => e.key === 'Enter' && void add(name, picked.path)} />
+          </span>
+          <button type="button" className="btn ghost" onClick={() => setPicked(null)}>
+            Cancel
+          </button>
+          <button type="button" className="btn primary" onClick={() => void add(name, picked.path)}>
+            <Plus size={14} /> Add
+          </button>
         </div>
+      ) : mac?.folders.length ? (
+        <>
+          <div className="cc-label-row">
+            <span className="cc-label">Folders on your Mac</span>
+          </div>
+          <input className="cc-search" placeholder="Search folders…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="cc-folders">
+            {folders.map((f) => (
+              <button
+                key={f.path}
+                type="button"
+                className="cc-folder"
+                onClick={() => {
+                  setPicked(f);
+                  setName(f.name);
+                }}
+              >
+                <FolderGit2 size={15} />
+                <span className="cc-project-text">
+                  <strong>{f.name}</strong>
+                  <span className="muted">{short(f.path)}</span>
+                </span>
+                <Plus size={15} />
+              </button>
+            ))}
+            {folders.length === 0 && <p className="muted">{q ? 'No folder matches.' : 'Every folder found is already a project.'}</p>}
+          </div>
+        </>
       ) : (
-        <button type="button" className="btn" onClick={() => void newRunnerKey().then(setKey, (e: Error) => setErr(e.message))}>
-          <KeyRound size={14} /> {mac?.connected ? 'Make a new key' : 'Connect my Mac'}
-        </button>
+        <p className="muted">{mac?.connected ? 'Waiting for your Mac to send its folder list…' : 'Once your Mac is connected, its project folders show up here to pick from.'}</p>
       )}
+
+      {!picked &&
+        (manual ? (
+          <div className="cc-add">
+            <input placeholder="Name, e.g. Orion Souq" value={name} onChange={(e) => setName(e.target.value)} />
+            <input placeholder="/Users/you/Projects/orion-souq" value={path} onChange={(e) => setPath(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void add(name, path)} />
+            <button type="button" className="btn" onClick={() => void add(name, path)}>
+              <Plus size={14} /> Add
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="btn ghost cc-copy cc-manual" onClick={() => setManual(true)}>
+            Type a folder path instead
+          </button>
+        ))}
+      {err && <div className="auth-error">{err}</div>}
 
       <div className="ex-form-actions">
         <span className="header-spacer" />
-        <button type="button" className="btn primary" onClick={onDone}>
+        <button type="button" className="btn primary" onClick={onDone} disabled={projects.length === 0}>
           Done
         </button>
       </div>

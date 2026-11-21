@@ -73,10 +73,22 @@ export async function deleteProject(id: string) {
   if (error) throw new Error(error.message);
 }
 
-/** When the Mac helper last checked in (null = never connected). */
-export async function runnerLastSeen(): Promise<{ connected: boolean; lastSeen: string | null }> {
-  const { data } = await sb().from('claude_runner_keys').select('last_seen_at').maybeSingle();
-  return { connected: !!data, lastSeen: data?.last_seen_at ?? null };
+export interface MacFolder {
+  name: string;
+  path: string;
+  git?: boolean;
+}
+
+export interface MacState {
+  connected: boolean;
+  lastSeen: string | null;
+  folders: MacFolder[];
+}
+
+/** The Mac helper: when it last checked in, and the project folders it found. */
+export async function runnerLastSeen(): Promise<MacState> {
+  const { data } = await sb().from('claude_runner_keys').select('last_seen_at, folders').maybeSingle();
+  return { connected: !!data, lastSeen: data?.last_seen_at ?? null, folders: (data?.folders as MacFolder[] | undefined) ?? [] };
 }
 
 export async function newRunnerKey(): Promise<string> {
