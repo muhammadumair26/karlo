@@ -130,7 +130,10 @@ export function useBoardSync(boardId: string, me: Me) {
         setLoadError('This board was deleted.');
         setStatus('error');
       })
-      .subscribe();
+      .subscribe((state) => {
+        // (Re)connected, or the live connection broke: make sure we didn't miss a save.
+        if (state === 'SUBSCRIBED' || state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') void checkForNewer();
+      });
 
     const catchUp = async () => {
       if (document.visibilityState !== 'visible' || inflight.current) return;
@@ -143,12 +146,29 @@ export function useBoardSync(boardId: string, me: Me) {
         /* offline */
       }
     };
+    // Live updates can silently stop (computer asleep, Wi-Fi switch, tab left open for hours), so also
+    // check every 20 seconds whether someone (e.g. the phone app) saved a newer copy. Only the version
+    // number is downloaded unless it changed.
+    const checkForNewer = async () => {
+      if (!alive.current || inflight.current || document.visibilityState !== 'visible') return;
+      try {
+        const { data: row } = await sb.from('boards').select('version').eq('id', boardId).maybeSingle();
+        const cur = confirmedRef.current;
+        if (row && (!cur || (row.version as number) > cur.version)) await catchUp();
+      } catch {
+        /* offline */
+      }
+    };
+    const poll = window.setInterval(() => void checkForNewer(), 20000);
     document.addEventListener('visibilitychange', catchUp);
     window.addEventListener('online', catchUp);
+    window.addEventListener('focus', catchUp);
 
     return () => {
       alive.current = false;
       window.clearTimeout(timer.current);
+      window.clearInterval(poll);
+      window.removeEventListener('focus', catchUp);
       sb.removeChannel(channel);
       document.removeEventListener('visibilitychange', catchUp);
       window.removeEventListener('online', catchUp);
