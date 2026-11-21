@@ -54,7 +54,7 @@ import { askConfirm } from './dialog';
 type Pop = null | 'add' | 'fields' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority' | 'location';
 
 /** Renders text with @mentions highlighted (shown by name) and bare links clickable. */
-function RichText({ text, people = [] }: { text: string; people?: Person[] }) {
+export function RichText({ text, people = [], onPerson }: { text: string; people?: Person[]; onPerson?: (p: Person, el: HTMLElement) => void }) {
   const parts = text.split(/(@[\w.+-]+|https?:\/\/[^\s]+)/g);
   return (
     <>
@@ -64,9 +64,21 @@ function RichText({ text, people = [] }: { text: string; people?: Person[] }) {
           const who = people.find((p) => handleOf(p).toLowerCase() === m[1].toLowerCase());
           return (
             <Fragment key={i}>
-              <span className="mention" title={who ? `@${m[1]}` : undefined}>
-                @{who?.name ?? m[1]}
-              </span>
+              {who && onPerson ? (
+                <button
+                  type="button"
+                  className="mention mention-btn"
+                  title={`@${m[1]}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPerson(who, e.currentTarget);
+                  }}
+                >
+                  @{who.name}
+                </button>
+              ) : (
+                <span className="mention">@{who?.name ?? m[1]}</span>
+              )}
               {m[2]}
             </Fragment>
           );
@@ -302,7 +314,7 @@ export function CardModal({
               <strong>{author?.name ?? c.authorName}</strong> <span className="feed-time">{timeAgo(c.createdAt)}</span>
             </div>
             <div className="comment-body">
-              <RichText text={c.text} people={people} />
+              <RichText text={c.text} people={people} onPerson={onPersonClick} />
             </div>
             {editable && (
               <div className="feed-actions">
@@ -1046,7 +1058,7 @@ export function CardModal({
               </div>
             ) : card.description ? (
               <div className="cw-indent desc-view" onClick={() => editable && setEditingDesc(true)}>
-                <RichText text={card.description} people={people} />
+                <RichText text={card.description} people={people} onPerson={onPersonClick} />
               </div>
             ) : editable ? (
               <button className="cw-indent desc-placeholder" onClick={() => setEditingDesc(true)}>
@@ -1208,7 +1220,7 @@ export function CardModal({
                         onChange={() => update({ checklist: card.checklist.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)) })}
                       />
                       <span className={item.done ? 'struck' : ''}>
-                        <RichText text={item.text} people={people} />
+                        <RichText text={item.text} people={people} onPerson={onPersonClick} />
                       </span>
                     </label>
                     {editable && (
