@@ -268,6 +268,7 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
     }
   });
   const [prompt, setPrompt] = useState('');
+  const [note, setNote] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -283,6 +284,7 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
     setErr(null);
     setSent(null);
     setPrompt(defaultPrompt(card, boardTitle, listTitle));
+    setNote('');
     setPicked(new Set(images.map((a) => a.id)));
     void listProjects().then(
       (p) => {
@@ -298,12 +300,14 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
 
   const send = async () => {
     if (!project) return setErr('Pick a project first.');
-    if (!prompt.trim()) return setErr('Tell Claude what to do.');
+    const full = [prompt.trim(), note.trim() && `My instructions:\n${note.trim()}`].filter(Boolean).join('\n\n');
+    if (!full) return setErr('Tell Claude what to do.');
     setBusy(true);
     setErr(null);
     try {
-      await sendTask({ project, boardId, card, prompt: prompt.trim(), images: images.filter((a) => picked.has(a.id)) });
+      await sendTask({ project, boardId, card, prompt: full, images: images.filter((a) => picked.has(a.id)) });
       setSent(project.name);
+      setNote('');
       window.setTimeout(() => setSent(null), 10000);
       try {
         localStorage.setItem(LAST_PROJECT, project.id);
@@ -363,8 +367,18 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
                     ))}
                   </div>
 
-                  <span className="cc-label">What Claude should do</span>
-                  <textarea className="cc-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={9} />
+                  <span className="cc-label">Your instructions</span>
+                  <textarea
+                    className="cc-prompt cc-note-input"
+                    autoFocus
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={3}
+                    placeholder="Add anything you want Claude to know or do — e.g. “Only change the mobile layout” or “Check the login page first”"
+                  />
+
+                  <span className="cc-label">From the card (you can edit this too)</span>
+                  <textarea className="cc-prompt" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={7} />
 
                   {images.length > 0 && (
                     <>
