@@ -330,7 +330,14 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
           wide
         >
           {view === 'setup' && projects ? (
-            <Setup projects={projects} setProjects={setProjects} onDone={() => setView('send')} />
+            <Setup
+              projects={projects}
+              setProjects={setProjects}
+              onDone={() => {
+                if (!projects.some((x) => x.id === projectId)) setProjectId(projects[0]?.id ?? null);
+                setView('send');
+              }}
+            />
           ) : (
             <div className="ex-form cc">
               {projects === null && !err && <p className="muted">Loading your projects…</p>}

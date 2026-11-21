@@ -105,6 +105,8 @@ export function defaultPrompt(card: Card, boardTitle: string, listTitle?: string
   if (card.description.trim()) lines.push('', 'Description:', card.description.trim());
   const open = card.checklist.filter((i) => !i.done);
   if (open.length) lines.push('', 'Checklist still to do:', ...open.map((i) => `- ${i.text}`));
+  const links = card.attachments.filter((a) => !a.path && a.url);
+  if (links.length) lines.push('', 'Attached links (open them, they may show the problem):', ...links.map((a) => `- ${a.name}: ${a.url}`));
   if (card.comments.length) {
     lines.push('', 'Latest comments:');
     for (const c of card.comments.slice(-5)) lines.push(`- ${c.authorName}: ${c.text}`);
