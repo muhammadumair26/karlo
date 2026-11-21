@@ -53,24 +53,32 @@ import { askConfirm } from './dialog';
 
 type Pop = null | 'add' | 'fields' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority' | 'location';
 
-/** Renders text with @mentions highlighted and bare links clickable. */
-function RichText({ text }: { text: string }) {
+/** Renders text with @mentions highlighted (shown by name) and bare links clickable. */
+function RichText({ text, people = [] }: { text: string; people?: Person[] }) {
   const parts = text.split(/(@[\w.+-]+|https?:\/\/[^\s]+)/g);
   return (
     <>
-      {parts.map((part, i) =>
-        part.startsWith('@') ? (
-          <span key={i} className="mention">
-            {part}
-          </span>
-        ) : /^https?:\/\//.test(part) ? (
+      {parts.map((part, i) => {
+        if (part.startsWith('@')) {
+          const m = /^@([\w.+-]*?)([.]*)$/.exec(part)!;
+          const who = people.find((p) => handleOf(p).toLowerCase() === m[1].toLowerCase());
+          return (
+            <Fragment key={i}>
+              <span className="mention" title={who ? `@${m[1]}` : undefined}>
+                @{who?.name ?? m[1]}
+              </span>
+              {m[2]}
+            </Fragment>
+          );
+        }
+        return /^https?:\/\//.test(part) ? (
           <a key={i} href={part} target="_blank" rel="noreferrer noopener">
             {part}
           </a>
         ) : (
           <Fragment key={i}>{part}</Fragment>
-        ),
-      )}
+        );
+      })}
     </>
   );
 }
@@ -294,7 +302,7 @@ export function CardModal({
               <strong>{author?.name ?? c.authorName}</strong> <span className="feed-time">{timeAgo(c.createdAt)}</span>
             </div>
             <div className="comment-body">
-              <RichText text={c.text} />
+              <RichText text={c.text} people={people} />
             </div>
             {editable && (
               <div className="feed-actions">
@@ -1038,7 +1046,7 @@ export function CardModal({
               </div>
             ) : card.description ? (
               <div className="cw-indent desc-view" onClick={() => editable && setEditingDesc(true)}>
-                <RichText text={card.description} />
+                <RichText text={card.description} people={people} />
               </div>
             ) : editable ? (
               <button className="cw-indent desc-placeholder" onClick={() => setEditingDesc(true)}>
@@ -1200,7 +1208,7 @@ export function CardModal({
                         onChange={() => update({ checklist: card.checklist.map((i) => (i.id === item.id ? { ...i, done: !i.done } : i)) })}
                       />
                       <span className={item.done ? 'struck' : ''}>
-                        <RichText text={item.text} />
+                        <RichText text={item.text} people={people} />
                       </span>
                     </label>
                     {editable && (
