@@ -100,6 +100,8 @@ export interface Card {
   location: CardLocation | null;
   cover: string | null; // attachment id shown on the card face
   time: TimeEntry[];
+  /** Values of the board's custom fields, by field id. */
+  fields?: Record<string, FieldValue>;
   archived: boolean;
   createdAt: number;
   createdBy: string;
@@ -125,6 +127,45 @@ export interface Activity {
   attachmentId?: string;
 }
 
+export type FieldType = 'text' | 'longtext' | 'number' | 'currency' | 'date' | 'dropdown' | 'multiselect' | 'checkbox' | 'person' | 'url' | 'email' | 'phone' | 'rating';
+/** multiselect and person store a list of ids; the rest a single value. */
+export type FieldValue = string | number | boolean | string[];
+
+export const FIELD_TYPES: { value: FieldType; label: string }[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'longtext', label: 'Long text' },
+  { value: 'number', label: 'Number' },
+  { value: 'currency', label: 'Money' },
+  { value: 'date', label: 'Date' },
+  { value: 'dropdown', label: 'Dropdown' },
+  { value: 'multiselect', label: 'Multi-select' },
+  { value: 'checkbox', label: 'Checkbox' },
+  { value: 'person', label: 'People' },
+  { value: 'url', label: 'Link' },
+  { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'rating', label: 'Rating' },
+];
+
+/** Field types whose choices are set up on the field. */
+export const hasOptions = (t: FieldType) => t === 'dropdown' || t === 'multiselect';
+
+export interface FieldOption {
+  id: string;
+  label: string;
+  color: string; // key of LABEL_COLORS
+}
+
+/** A board-wide extra field every card can fill in (e.g. "Budget", "Client", "Approved"). */
+export interface CustomField {
+  id: string;
+  name: string;
+  type: FieldType;
+  options?: FieldOption[]; // dropdown / multi-select choices
+  currency?: string; // money fields, e.g. AED
+  showOnCard: boolean; // show the value on the card in the list
+}
+
 /** Everything inside one board; stored as JSON in boards.data. */
 export interface BoardData {
   lists: Record<string, List>;
@@ -136,6 +177,7 @@ export interface BoardData {
   dashboard: DashboardTile[] | null; // null = default tiles
   settings?: BoardSettings; // board rules (admins); missing = defaults
   automations?: AutomationRule[]; // "when … then …" rules (admins)
+  customFields?: CustomField[]; // extra fields on every card
 }
 
 /** What starts an automation. */

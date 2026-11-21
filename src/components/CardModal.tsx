@@ -23,6 +23,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  SlidersHorizontal,
   Tag,
   Trash2,
   User,
@@ -43,11 +44,12 @@ import { osmLink, searchPlaces, shortPlace } from '../lib/geocode';
 import { handleOf } from '../lib/notify';
 import { cardLink, parseCardLink, recentCards, rememberCard } from '../lib/recent';
 import { LabelsEditor } from './LabelsEditor';
+import { CardFields, FieldsEditor } from './CustomFields';
 import { MentionInput } from './MentionInput';
 import { Avatar, Menu, Modal, timeAgo } from './ui';
 import { askConfirm } from './dialog';
 
-type Pop = null | 'add' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority' | 'location';
+type Pop = null | 'add' | 'fields' | 'labels' | 'dates' | 'members' | 'attachment' | 'priority' | 'location';
 
 /** Renders text with @mentions highlighted and bare links clickable. */
 function RichText({ text }: { text: string }) {
@@ -385,6 +387,7 @@ export function CardModal({
                 ['priority', Flag, 'Priority', 'Urgent, high, medium or low'],
                 ['attachment', Paperclip, 'Attachment', 'Upload files or add links'],
                 ['location', MapPin, 'Location', 'View this card on a map'],
+                ['fields', SlidersHorizontal, 'Custom fields', 'Your own details, like Budget or Client'],
               ] as const
             ).map(([key, Icon, label, hint]) => (
               <button key={key} className="add-option" onClick={() => (key === 'checklist' ? openChecklist() : key === 'time' ? (setShowTime(true), setPop(null)) : setPop(key))}>
@@ -431,6 +434,12 @@ export function CardModal({
                 </button>
               </>
             )}
+          </Popover>
+        );
+      case 'fields':
+        return (
+          <Popover title="Custom fields" onClose={() => setPop(null)}>
+            <FieldsEditor fields={data.customFields ?? []} dispatch={dispatch} />
           </Popover>
         );
       case 'dates':
@@ -965,6 +974,15 @@ export function CardModal({
               )}
             </div>
           )}
+
+          <CardFields
+            card={card}
+            fields={data.customFields ?? []}
+            people={people}
+            ro={ro}
+            dispatch={dispatch}
+            onManage={editable ? () => setTimeout(() => setPop('fields'), 0) : undefined}
+          />
 
           {/* description */}
           <section className="cw-section">

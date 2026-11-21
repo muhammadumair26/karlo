@@ -1,7 +1,8 @@
 import { AlignLeft, Bell, CheckSquare, Clock, Flag, MapPin, MessageSquare, Paperclip, Pencil, Timer } from 'lucide-react';
 import { anyRunning, cardTimeMs, formatDuration } from '../lib/time';
 import { dueStatus, formatDate } from '../lib/filters';
-import type { Card, Label, Person } from '../lib/types';
+import type { Card, CustomField, Label, Person } from '../lib/types';
+import { CardFieldChips } from './CustomFields';
 import { LABEL_COLORS, PRIORITIES } from '../lib/types';
 import { Avatar } from './ui';
 
@@ -10,6 +11,7 @@ export function CardItem({
   coverUrl,
   card,
   labels,
+  fields,
   people,
   dragging,
   carried = false,
@@ -26,6 +28,8 @@ export function CardItem({
   coverUrl?: string;
   card: Card;
   labels: Map<string, Label>;
+  /** The board's custom fields (those marked "show on card" appear on the face). */
+  fields?: CustomField[];
   people: Map<string, Person>;
   dragging: boolean;
   /** Being carried by a finger: hidden here while its floating copy follows the finger. */
@@ -117,6 +121,7 @@ export function CardItem({
         <Pencil size={14} />
       </button>
 
+      <CardFieldChips card={card} fields={fields} people={people} />
       {hasBadges ? (
         <div className="card-badges">
           {unread > 0 && (

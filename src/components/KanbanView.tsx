@@ -312,6 +312,7 @@ export function KanbanView({
                       card={card}
                       coverUrl={coverPath(card) ? coverUrls.get(coverPath(card)!) : undefined}
                       labels={labels}
+                      fields={data.customFields}
                       people={people}
                       draggable={editable && !coarsePointer}
                       dragging={drag?.kind === 'card' && drag.id === card.id}

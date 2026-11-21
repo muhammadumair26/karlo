@@ -1,4 +1,4 @@
-import type { Activity, Attachment, BoardData, Card, Comment, DashboardTile, Label, List, BoardSettings, AutomationRule, TimeEntry } from './types';
+import type { Activity, Attachment, BoardData, Card, Comment, CustomField, DashboardTile, FieldValue, Label, List, BoardSettings, AutomationRule, TimeEntry } from './types';
 import { formatDuration } from './time';
 
 export const uid = () =>
@@ -93,6 +93,7 @@ export function normalize(raw: unknown): BoardData {
       cover: c.cover && (c.attachments ?? []).some((x) => x.id === c.cover) ? c.cover : null,
       priority: c.priority ?? 'none',
       time: Array.isArray(c.time) ? c.time.filter((t) => t && typeof t.start === 'number') : [],
+      ...(c.fields && typeof c.fields === 'object' ? { fields: c.fields } : {}),
       description,
       archived: !!c.archived,
       dueDone: !!c.dueDone,
@@ -102,7 +103,7 @@ export function normalize(raw: unknown): BoardData {
   }
   const listOrder = (d.listOrder ?? Object.keys(lists)).filter((id) => lists[id]);
   for (const l of Object.values(lists)) l.cardIds = l.cardIds.filter((id) => cards[id]);
-  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null, dashboard: Array.isArray(d.dashboard) ? d.dashboard : null, ...(d.settings && typeof d.settings === 'object' ? { settings: d.settings } : {}), ...(Array.isArray(d.automations) ? { automations: d.automations } : {}) };
+  return { lists, listOrder, cards, labels: d.labels ?? [], activity: d.activity ?? [], background: d.background ?? null, dashboard: Array.isArray(d.dashboard) ? d.dashboard : null, ...(d.settings && typeof d.settings === 'object' ? { settings: d.settings } : {}), ...(Array.isArray(d.automations) ? { automations: d.automations } : {}), ...(Array.isArray(d.customFields) ? { customFields: d.customFields } : {}) };
 }
 
 // ------------------------------------------------------------------ actions
@@ -134,6 +135,10 @@ export type BoardActionBody =
   | { type: 'SET_AUTOMATIONS'; rules: AutomationRule[]; note?: string }
   | { type: 'SET_LIST_RULES'; listId: string; rules: { protected?: boolean; requireDue?: boolean } }
   | { type: 'MAP_GUEST'; name: string; userId: string | null }
+  /** Replaces the board's custom field definitions (values of removed fields are dropped). */
+  | { type: 'SET_FIELDS'; fields: CustomField[]; note?: string }
+  /** Sets one custom field on one card; null clears it. */
+  | { type: 'SET_FIELD_VALUE'; cardId: string; fieldId: string; value: FieldValue | null }
   /** Starts my timer on a card (stopping any other timer of mine on this board). */
   | { type: 'TIMER_START'; cardId: string; entryId: string }
   /** Stops my running timer on a card. */
@@ -377,6 +382,64 @@ export function boardReducer(d: BoardData, a: BoardAction): BoardData {
         cards[id] = { ...c, guests: c.guests.filter((g) => g !== a.name), assignees };
       }
       return { ...d, cards, activity: log(d, a, `${a.userId ? 'linked' : 'removed'} imported person “${a.name}” on ${n} card(s)`) };
+    }
+    case 'SET_FIELDS': {
+      const keep = new Map(a.fields.map((f) => [f.id, f]));
+      const cards: Record<string, Card> = {};
+      for (const [id, c] of Object.entries(d.cards)) {
+        const entries = Object.entries(c.fields ?? {});
+        let changed = false;
+        const next: [string, FieldValue][] = [];
+        for (const [fid, v] of entries) {
+          const f = keep.get(fid);
+          const opts = new Set((f?.options ?? []).map((o) => o.id));
+          // A removed field or choice is cleared from the cards that used it.
+          if (!f) changed = true;
+          else if (f.type === 'dropdown' && !opts.has(v as string)) changed = true;
+          else if (f.type === 'multiselect' && Array.isArray(v)) {
+            const kept = v.filter((x) => opts.has(x));
+            if (kept.length !== v.length) changed = true;
+            if (kept.length) next.push([fid, kept]);
+          } else next.push([fid, v]);
+        }
+        cards[id] = changed ? { ...c, fields: Object.fromEntries(next) } : c;
+      }
+      return { ...d, customFields: a.fields, cards, activity: log(d, a, a.note || 'updated the custom fields') };
+    }
+    case 'SET_FIELD_VALUE': {
+      const c = d.cards[a.cardId];
+      const f = (d.customFields ?? []).find((x) => x.id === a.fieldId);
+      if (!c || !f) return d;
+      const fields = { ...(c.fields ?? {}) };
+      const v = a.value;
+      const empty = v === null || v === '' || v === false || (f.type === 'rating' && v === 0) || (Array.isArray(v) && v.length === 0);
+      if (empty) {
+        if (!(a.fieldId in fields)) return d;
+        delete fields[a.fieldId];
+      } else {
+        if (JSON.stringify(fields[a.fieldId]) === JSON.stringify(v)) return d;
+        fields[a.fieldId] = v;
+      }
+      const optLabel = (id: string) => (f.options ?? []).find((o) => o.id === id)?.label ?? '';
+      const shown = empty
+        ? ''
+        : f.type === 'dropdown'
+          ? optLabel(v as string)
+          : f.type === 'multiselect'
+            ? (v as string[]).map(optLabel).filter(Boolean).join(', ')
+            : f.type === 'rating'
+              ? `${v}★`
+              : f.type === 'longtext' || f.type === 'person'
+                ? ''
+                : String(v);
+      const text = empty
+        ? `cleared ${f.name} on “${c.title}”`
+        : f.type === 'checkbox'
+          ? `ticked ${f.name} on “${c.title}”`
+          : !shown
+            ? `updated ${f.name} on “${c.title}”`
+            : `set ${f.name} on “${c.title}” to ${shown}`;
+      return { ...d, cards: { ...d.cards, [c.id]: { ...c, fields } }, activity: log(d, a, text, c.id) };
     }
     case 'SET_LABELS': {
       const ids = new Set(a.labels.map((l) => l.id));

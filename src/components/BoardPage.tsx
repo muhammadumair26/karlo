@@ -47,6 +47,7 @@ import { EditableText } from './Editable';
 import { KanbanView } from './KanbanView';
 import { TimeView } from './TimeView';
 import { LabelsEditor } from './LabelsEditor';
+import { FieldsEditor } from './CustomFields';
 import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
 import { BoardSettingsModal } from './BoardSettings';
@@ -198,7 +199,7 @@ export function BoardPage({
       return 'board';
     }
   });
-  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests' | 'settings' | 'automation'>(null);
+  const [panel, setPanel] = useState<null | 'share' | 'labels' | 'archive' | 'activity' | 'background' | 'guests' | 'settings' | 'automation' | 'fields'>(null);
   const [memberTarget, setMemberTarget] = useState<MemberCardTarget | null>(null);
   // My unread notifications on this board, per card (red bell badge on the card, like Trello).
   const [unreadByCard, setUnreadByCard] = useState<Map<string, string[]>>(new Map());
@@ -412,6 +413,7 @@ export function BoardPage({
             )}
             {editable && <button onClick={() => (setMenuOpen(false), setPanel('background'))}><Image size={16} /> Change background</button>}
             {editable && <button onClick={() => (setMenuOpen(false), setPanel('labels'))}><Tag size={16} /> Labels</button>}
+            {editable && <button onClick={() => (setMenuOpen(false), setPanel('fields'))}><SlidersHorizontal size={16} /> Custom fields</button>}
             {editable && guestNames.length > 0 && (
               <button onClick={() => (setMenuOpen(false), setPanel('guests'))}><Link2 size={16} /> Link imported people ({guestNames.length})</button>
             )}
@@ -764,6 +766,11 @@ export function BoardPage({
       )}
       {panel === 'settings' && data && <BoardSettingsModal data={data} admin={admin} dispatch={dispatch} onClose={closePanel} />}
       {panel === 'automation' && data && <AutomationModal data={data} admin={admin} people={people} dispatch={dispatch} onClose={closePanel} />}
+      {panel === 'fields' && data && (
+        <Modal title="Custom fields" onClose={closePanel}>
+          <FieldsEditor fields={data.customFields ?? []} dispatch={dispatch} />
+        </Modal>
+      )}
       {panel === 'labels' && data && (
         <Modal title="Board labels" onClose={closePanel}>
           <LabelsEditor labels={data.labels} onChange={(labels) => dispatch({ type: 'SET_LABELS', labels })} />
