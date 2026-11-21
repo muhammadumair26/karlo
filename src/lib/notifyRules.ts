@@ -35,7 +35,7 @@ export function mentionedIds(text: string, people: Person[]): string[] {
 
 /**
  * People newly @mentioned on a card by this change (comment, description or new checklist item)
- * who aren't members yet — they become responsible for the card.
+ * who aren't members or owners yet — they become responsible for the card.
  */
 export function newMentionAssignees(before: BoardData, a: BoardActionBody, people: Person[]): string[] {
   const cardId = 'cardId' in a ? a.cardId : null;
@@ -57,7 +57,8 @@ export function newMentionAssignees(before: BoardData, a: BoardActionBody, peopl
       }
     }
   }
-  const members = new Set([...card.assignees, ...((a.type === 'UPDATE_CARD' && a.patch.assignees) || [])]);
+  // Owners are already responsible: mentioning them only notifies them.
+  const members = new Set([...card.assignees, ...card.owners, card.createdBy, ...((a.type === 'UPDATE_CARD' && a.patch.assignees) || [])]);
   return [...new Set(ids)].filter((id) => !members.has(id));
 }
 
