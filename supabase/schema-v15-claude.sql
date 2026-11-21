@@ -123,3 +123,27 @@ begin
   update claude_runner_keys set folders = coalesce(p_folders, '[]'::jsonb), last_seen_at = now() where user_id = u;
 end $$;
 grant execute on function public.claude_runner_folders(text, jsonb) to anon, authenticated;
+
+-- Notify the owner (bell + phone push) when Claude finishes or stops.
+create or replace function public.claude_runner_update(p_key text, p_id uuid, p_status text, p_session uuid default null, p_result text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare u uuid := claude_runner_user(p_key); t claude_tasks;
+begin
+  if u is null then raise exception 'Unknown key'; end if;
+  if p_status not in ('working', 'done', 'failed') then raise exception 'Bad status'; end if;
+  update claude_tasks set
+    status      = p_status,
+    session_id  = coalesce(p_session, session_id),
+    result      = coalesce(p_result, result),
+    started_at  = case when p_status = 'working' then now() else started_at end,
+    finished_at = case when p_status in ('done', 'failed') then now() else finished_at end
+  where id = p_id and user_id = u and status <> 'cancelled'
+  returning * into t;
+  if found and p_status in ('done', 'failed') and t.board_id is not null then
+    insert into notifications (user_id, actor_id, board_id, card_id, kind, card_title, body)
+    values (u, u, t.board_id, t.card_id, 'automation', t.card_title,
+      case when p_status = 'done' then '🤖 Claude finished working on this in ' || t.project_name || ' — open the card to see what changed.'
+           else '🤖 Claude stopped with a problem in ' || t.project_name || ' — open the card to see why.' end);
+  end if;
+end $$;
+grant execute on function public.claude_runner_update(text, uuid, text, uuid, text) to anon, authenticated;

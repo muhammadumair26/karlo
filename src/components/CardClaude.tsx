@@ -271,6 +271,7 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
   const tasks = useCardClaudeTasks(card.id, true);
   const active = tasks.find((t) => t.status === 'queued' || t.status === 'working');
 
@@ -280,6 +281,7 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
   const start = () => {
     setOpen(true);
     setErr(null);
+    setSent(null);
     setPrompt(defaultPrompt(card, boardTitle, listTitle));
     setPicked(new Set(images.map((a) => a.id)));
     void listProjects().then(
@@ -301,6 +303,8 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
     setErr(null);
     try {
       await sendTask({ project, boardId, card, prompt: prompt.trim(), images: images.filter((a) => picked.has(a.id)) });
+      setSent(project.name);
+      window.setTimeout(() => setSent(null), 10000);
       try {
         localStorage.setItem(LAST_PROJECT, project.id);
       } catch {
@@ -405,6 +409,15 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
                 </>
               )}
               {err && <div className="auth-error">{err}</div>}
+              {sent && (
+                <div className="cc-sent">
+                  <Check size={18} />
+                  <span>
+                    <strong>Sent to Claude · {sent}</strong>
+                    <span>It starts on your Mac in a few seconds. You'll get a notification when it's done.</span>
+                  </span>
+                </div>
+              )}
 
               {tasks.length > 0 && (
                 <>
