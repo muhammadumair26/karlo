@@ -1,4 +1,4 @@
-import { AtSign, CalendarDays, Lock, Plus, Trash2, UserCheck } from 'lucide-react';
+import { AtSign, CalendarDays, Lock, Plus, Trash2, UserCheck, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import type { BoardActionBody } from '../lib/board';
 import { boardSettings, DEFAULT_BOARD_SETTINGS, type BoardData, type BoardSettings } from '../lib/types';
@@ -112,6 +112,14 @@ export function BoardSettingsModal({
             <span className="muted">Mentioned people become members (responsible)</span>
           </div>
           <Toggle on={s.mentionAssigns} onChange={(v) => set({ mentionAssigns: v })} label="Mention adds member" disabled={!admin} />
+        </div>
+        <div className="rs-row">
+          <UserPlus size={18} />
+          <div className="rs-text">
+            <strong>Editing a card adds you as a member</strong>
+            <span className="muted">Change a card you don't own and you join it, so it's clear who worked on it</span>
+          </div>
+          <Toggle on={s.editJoins} onChange={(v) => set({ editJoins: v })} label="Editing adds member" disabled={!admin} />
         </div>
 
         <div className="ex-form-actions">

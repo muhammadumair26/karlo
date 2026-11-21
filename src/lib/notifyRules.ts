@@ -2,6 +2,7 @@ import type { BoardActionBody } from './board';
 import { cardListId } from './board';
 import { formatDate } from './filters';
 import type { BoardData, Me, Person } from './types';
+import { boardSettings } from './types';
 
 /** Who hears about a card change. Pure (no network), shared by the website and the phone app. */
 
@@ -127,3 +128,24 @@ export function notificationsFor(before: BoardData, a: BoardActionBody, me: Me, 
   return out;
 }
 
+
+/** Card changes that count as "working on" a card (deleting or archiving doesn't). */
+const EDIT_TYPES = new Set<BoardActionBody['type']>([
+  'UPDATE_CARD', 'MOVE_CARD', 'ADD_COMMENT', 'ADD_ATTACHMENTS', 'SET_FIELD_VALUE', 'TIMER_START', 'ADD_TIME',
+]);
+
+/**
+ * Board setting "Editing a card adds you": someone who changes a card they don't own and
+ * aren't a member of becomes a member of it.
+ */
+export function joinsOnEdit(before: BoardData, a: BoardActionBody, userId: string): boolean {
+  if (!userId || !boardSettings(before).editJoins || !EDIT_TYPES.has(a.type) || !('cardId' in a)) return false;
+  if (a.type === 'UPDATE_CARD') {
+    const keys = Object.keys(a.patch);
+    // Changing the members yourself is a deliberate choice; archiving isn't working on the card.
+    if (keys.includes('assignees') || keys.every((k) => k === 'archived')) return false;
+  }
+  const c = before.cards[a.cardId];
+  if (!c) return false;
+  return !c.owners.includes(userId) && c.createdBy !== userId && !c.assignees.includes(userId);
+}

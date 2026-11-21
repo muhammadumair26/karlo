@@ -214,6 +214,7 @@ export interface BoardSettings {
   addCards: 'editors' | 'admins'; // who can add cards
   deleteCards: 'owner_admin' | 'editors'; // who can delete cards
   mentionAssigns: boolean; // @mentioning someone adds them as a member
+  editJoins: boolean; // changing a card you don't own makes you a member of it
 }
 
 export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
@@ -223,6 +224,7 @@ export const DEFAULT_BOARD_SETTINGS: BoardSettings = {
   addCards: 'editors',
   deleteCards: 'owner_admin',
   mentionAssigns: true,
+  editJoins: true,
 };
 
 export const boardSettings = (d: Pick<BoardData, 'settings'> | null | undefined): BoardSettings => ({ ...DEFAULT_BOARD_SETTINGS, ...(d?.settings ?? {}) });
