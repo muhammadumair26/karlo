@@ -868,7 +868,7 @@ export function CardModal({
                 listTitle={listId ? data.lists[listId]?.title : undefined}
                 names={(id) => people.find((p) => p.user_id === id)?.name ?? ''}
               />
-              {claudeAllowed && <CardClaude card={card} boardId={boardId} boardTitle={boardTitle} listTitle={listId ? data.lists[listId]?.title : undefined} />}
+              {claudeAllowed && <CardClaude card={card} boardId={boardId} boardTitle={boardTitle} listTitle={listId ? data.lists[listId]?.title : undefined} onComment={editable ? (text) => dispatch({ type: 'ADD_COMMENT', cardId: card.id, comment: { id: uid(), authorId: me.id, authorName: me.name, text, createdAt: Date.now() } }) : undefined} />}
               {expenseState?.settings && (
                 <button className="cw-btn" onClick={() => setAddingExpense(true)} title="Record money spent on this card (partners only)">
                   <Wallet size={16} /> Expense

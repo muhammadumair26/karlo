@@ -1,32 +1,14 @@
-import { Lock, Plus, Trash2, X, Zap } from 'lucide-react';
+import { Lock, Pencil, Plus, Send, Trash2, X, Zap } from 'lucide-react';
 import { useState } from 'react';
-import { actionText, suggestedRules, triggerText } from '../lib/automation';
+import { ACTION_CHOICES, actionText, blankAction, blankTrigger, REPEATABLE, ruleIsValid, suggestedRules, testWebhook, TRIGGER_CHOICES, triggerText, validWebhookUrl, type AutoContext } from '../lib/automation';
 import { uid, type BoardActionBody } from '../lib/board';
-import type { AutoAction, AutomationRule, AutoTrigger, BoardData, Person } from '../lib/types';
+import { PRIORITIES, type AutoAction, type AutomationRule, type AutoTrigger, type BoardData, type Person, type Priority } from '../lib/types';
 import { askConfirm } from './dialog';
 import { Modal } from './ui';
 
 type TriggerKind = AutoTrigger['type'];
 type ActionKind = AutoAction['type'];
-
-const TRIGGERS: { v: TriggerKind; label: string }[] = [
-  { v: 'moved_to', label: 'A card is moved to…' },
-  { v: 'added_to', label: 'A card is added to…' },
-  { v: 'completed', label: 'A card is marked complete' },
-  { v: 'checklist_done', label: "A card's checklist is all ticked" },
-];
-
-const ACTIONS: { v: ActionKind; label: string }[] = [
-  { v: 'complete', label: 'Mark it complete' },
-  { v: 'uncomplete', label: 'Mark it not complete' },
-  { v: 'move_to', label: 'Move it to a list' },
-  { v: 'assign', label: 'Add a responsible person' },
-  { v: 'due_in', label: 'Set the due date' },
-  { v: 'clear_due', label: 'Remove the due date' },
-  { v: 'add_label', label: 'Add a label' },
-  { v: 'check_all', label: 'Tick every checklist item' },
-  { v: 'notify', label: 'Send a notification' },
-];
+const GROUPS = [...new Set(ACTION_CHOICES.map((a) => a.group))];
 
 /** "When … then …" rules for a board. Admins add and change them; everyone can see them. */
 export function AutomationModal({
@@ -35,15 +17,18 @@ export function AutomationModal({
   people,
   dispatch,
   onClose,
+  ctx,
 }: {
   data: BoardData;
   admin: boolean;
   people: Person[];
   dispatch: (a: BoardActionBody) => void;
   onClose: () => void;
+  ctx: AutoContext;
 }) {
   const rules = data.automations ?? [];
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const lists = data.listOrder.map((id) => data.lists[id]).filter((l) => l && !l.archived);
   const personName = (id: string) => people.find((p) => p.user_id === id)?.name ?? 'someone';
 
@@ -87,6 +72,11 @@ export function AutomationModal({
                 <span />
               </button>
               {admin && (
+                <button className="icon-btn" onClick={() => (setAdding(false), setEditing(r.id))} aria-label="Edit automation" title="Edit">
+                  <Pencil size={15} />
+                </button>
+              )}
+              {admin && (
                 <button className="icon-btn" onClick={() => void remove(r)} aria-label="Delete automation" title="Delete">
                   <Trash2 size={15} />
                 </button>
@@ -95,20 +85,25 @@ export function AutomationModal({
           ))}
         </ul>
 
-        {admin && adding && (
+        {admin && (adding || editing) && (
           <RuleEditor
+            key={editing ?? 'new'}
             data={data}
             lists={lists.map((l) => ({ id: l.id, title: l.title }))}
             people={people}
-            onCancel={() => setAdding(false)}
+            ctx={{ ...ctx, personName }}
+            initial={rules.find((r) => r.id === editing)}
+            onCancel={() => (setAdding(false), setEditing(null))}
             onSave={(r) => {
-              save([...rules, r], 'added an automation');
+              if (editing) save(rules.map((x) => (x.id === editing ? { ...r, id: editing, on: x.on } : x)), 'changed an automation');
+              else save([...rules, r], 'added an automation');
               setAdding(false);
+              setEditing(null);
             }}
           />
         )}
 
-        {admin && !adding && (
+        {admin && !adding && !editing && (
           <>
             <button className="btn primary au-add" onClick={() => setAdding(true)}>
               <Plus size={15} /> New automation
@@ -134,79 +129,83 @@ function RuleEditor({
   data,
   lists,
   people,
+  ctx,
+  initial,
   onCancel,
   onSave,
 }: {
   data: BoardData;
   lists: { id: string; title: string }[];
   people: Person[];
+  ctx: AutoContext;
+  initial?: AutomationRule;
   onCancel: () => void;
   onSave: (r: AutomationRule) => void;
 }) {
-  const [tk, setTk] = useState<TriggerKind>('moved_to');
-  const [tList, setTList] = useState(lists[lists.length - 1]?.id ?? '');
-  const [actions, setActions] = useState<AutoAction[]>([]);
+  const [trigger, setTrigger] = useState<AutoTrigger>(initial?.trigger ?? { type: 'moved_to', listId: lists[lists.length - 1]?.id ?? '' });
+  const [actions, setActions] = useState<AutoAction[]>(initial?.actions ?? []);
   const [pick, setPick] = useState<ActionKind | ''>('');
-
-  const trigger: AutoTrigger = tk === 'moved_to' || tk === 'added_to' ? { type: tk, listId: tList } : { type: tk };
-  const blank = (k: ActionKind): AutoAction => {
-    switch (k) {
-      case 'move_to':
-        return { type: k, listId: lists.find((l) => l.id !== tList)?.id ?? lists[0]?.id ?? '' };
-      case 'assign':
-        return { type: k, userId: '@owner' };
-      case 'due_in':
-        return { type: k, days: 3 };
-      case 'add_label':
-        return { type: k, labelId: data.labels[0]?.id ?? '' };
-      case 'notify':
-        return { type: k, to: 'members', message: '' };
-      default:
-        return { type: k } as AutoAction;
-    }
-  };
+  const [tested, setTested] = useState<number | null>(null);
+  const tList = 'listId' in trigger ? trigger.listId : '';
   const setAt = (i: number, a: AutoAction) => setActions(actions.map((x, j) => (j === i ? a : x)));
-  const valid = actions.length > 0 && (trigger.type === 'completed' || trigger.type === 'checklist_done' || !!tList) && actions.every((a) => (a.type === 'add_label' ? !!a.labelId : a.type === 'move_to' ? !!a.listId : true));
+  const valid = ruleIsValid(trigger, actions);
+
+  const listSelect = (value: string, onChange: (v: string) => void, label: string) => (
+    <select className="field-select" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label}>
+      {lists.map((l) => (
+        <option key={l.id} value={l.id}>
+          {l.title}
+        </option>
+      ))}
+    </select>
+  );
+  const labelSelect = (value: string, onChange: (v: string) => void) =>
+    data.labels.length ? (
+      <select className="field-select" value={value} onChange={(e) => onChange(e.target.value)} aria-label="Label">
+        {data.labels.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.name || l.color}
+          </option>
+        ))}
+      </select>
+    ) : (
+      <span className="muted">This board has no labels yet.</span>
+    );
+  const prioritySelect = (value: Priority, onChange: (v: Priority) => void) => (
+    <select className="field-select" value={value} onChange={(e) => onChange(e.target.value as Priority)} aria-label="Priority">
+      {PRIORITIES.map((p) => (
+        <option key={p.value} value={p.value}>
+          {p.label}
+        </option>
+      ))}
+    </select>
+  );
 
   return (
     <div className="au-editor">
       <label className="au-field">
         <span>When</span>
-        <select className="field-select" value={tk} onChange={(e) => setTk(e.target.value as TriggerKind)}>
-          {TRIGGERS.map((t) => (
+        <select className="field-select" value={trigger.type} onChange={(e) => setTrigger(blankTrigger(e.target.value as TriggerKind, data, tList || lists[lists.length - 1]?.id || ''))}>
+          {TRIGGER_CHOICES.map((t) => (
             <option key={t.v} value={t.v}>
               {t.label}
             </option>
           ))}
         </select>
-        {(tk === 'moved_to' || tk === 'added_to') && (
-          <select className="field-select" value={tList} onChange={(e) => setTList(e.target.value)} aria-label="List">
-            {lists.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.title}
-              </option>
-            ))}
-          </select>
-        )}
+        {(trigger.type === 'moved_to' || trigger.type === 'added_to') && listSelect(trigger.listId, (v) => setTrigger({ ...trigger, listId: v }), 'List')}
+        {trigger.type === 'label_added' && labelSelect(trigger.labelId, (v) => setTrigger({ ...trigger, labelId: v }))}
+        {trigger.type === 'priority_set' && prioritySelect(trigger.priority, (v) => setTrigger({ ...trigger, priority: v }))}
       </label>
 
       <div className="au-field">
         <span>Then</span>
         {actions.map((a, i) => (
           <div key={i} className="au-action">
-            <span className="au-action-name">{ACTIONS.find((x) => x.v === a.type)?.label}</span>
-            {a.type === 'move_to' && (
-              <select className="field-select" value={a.listId} onChange={(e) => setAt(i, { ...a, listId: e.target.value })} aria-label="Move to list">
-                {lists.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.title}
-                  </option>
-                ))}
-              </select>
-            )}
-            {a.type === 'assign' && (
+            <span className="au-action-name">{ACTION_CHOICES.find((x) => x.v === a.type)?.label}</span>
+            {a.type === 'move_to' && listSelect(a.listId, (v) => setAt(i, { ...a, listId: v }), 'Move to list')}
+            {(a.type === 'assign' || a.type === 'unassign') && (
               <select className="field-select" value={a.userId} onChange={(e) => setAt(i, { ...a, userId: e.target.value })} aria-label="Person">
-                <option value="@owner">The card's owner</option>
+                {a.type === 'assign' ? <option value="@owner">The card's owner</option> : <option value="@all">Everyone responsible</option>}
                 {people.map((p) => (
                   <option key={p.user_id} value={p.user_id}>
                     {p.name}
@@ -223,18 +222,12 @@ function RuleEditor({
                 ))}
               </select>
             )}
-            {a.type === 'add_label' &&
-              (data.labels.length ? (
-                <select className="field-select" value={a.labelId} onChange={(e) => setAt(i, { ...a, labelId: e.target.value })} aria-label="Label">
-                  {data.labels.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name || l.color}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="muted">This board has no labels yet.</span>
-              ))}
+            {(a.type === 'add_label' || a.type === 'remove_label') && labelSelect(a.labelId, (v) => setAt(i, { ...a, labelId: v }))}
+            {a.type === 'set_priority' && prioritySelect(a.priority, (v) => setAt(i, { ...a, priority: v }))}
+            {a.type === 'add_checklist' && (
+              <textarea className="text-input au-wide" rows={3} placeholder={'One item per line, e.g.\nCheck the invoice\nSend to client'} value={a.items.join('\n')} onChange={(e) => setAt(i, { ...a, items: e.target.value.split('\n') })} />
+            )}
+            {a.type === 'add_comment' && <input className="text-input au-wide" placeholder="Comment, e.g. Moved to review — please check" value={a.text} maxLength={500} onChange={(e) => setAt(i, { ...a, text: e.target.value })} />}
             {a.type === 'notify' && (
               <>
                 <select className="field-select" value={a.to} onChange={(e) => setAt(i, { ...a, to: e.target.value })} aria-label="Who">
@@ -249,6 +242,24 @@ function RuleEditor({
                 <input className="text-input" placeholder="Message, e.g. Ready for review" value={a.message} maxLength={140} onChange={(e) => setAt(i, { ...a, message: e.target.value })} />
               </>
             )}
+            {a.type === 'webhook' && (
+              <div className="au-hook">
+                <input className="text-input" type="url" inputMode="url" placeholder="https://hooks.zapier.com/…" value={a.url} onChange={(e) => (setAt(i, { ...a, url: e.target.value }), setTested(null))} aria-label="Webhook link" />
+                <select className="field-select" value={a.format} onChange={(e) => setAt(i, { ...a, format: e.target.value as 'json' | 'chat' })} aria-label="Format">
+                  <option value="json">All card details (Zapier, Make, n8n)</option>
+                  <option value="chat">Chat message (Slack, Teams, Google Chat, Discord)</option>
+                </select>
+                <button
+                  type="button"
+                  className="btn ghost au-test"
+                  disabled={!validWebhookUrl(a.url)}
+                  onClick={() => void testWebhook(a.url, a.format, data, ctx).then(() => setTested(i))}
+                >
+                  <Send size={14} /> {tested === i ? 'Test sent' : 'Send test'}
+                </button>
+                <span className="muted au-note">Karlo posts the card to this link each time the rule runs. Anyone on this board can see the link.</span>
+              </div>
+            )}
             <button className="icon-btn au-x" onClick={() => setActions(actions.filter((_, j) => j !== i))} aria-label="Remove step" title="Remove">
               <X size={14} />
             </button>
@@ -259,15 +270,19 @@ function RuleEditor({
           value={pick}
           onChange={(e) => {
             const k = e.target.value as ActionKind;
-            if (k) setActions([...actions, blank(k)]);
+            if (k) setActions([...actions, blankAction(k, data, lists, tList)]);
             setPick('');
           }}
         >
           <option value="">{actions.length ? '+ Add another step…' : '+ Choose what happens…'}</option>
-          {ACTIONS.filter((x) => !actions.some((a) => a.type === x.v) || x.v === 'notify').map((x) => (
-            <option key={x.v} value={x.v}>
-              {x.label}
-            </option>
+          {GROUPS.map((g) => (
+            <optgroup key={g} label={g}>
+              {ACTION_CHOICES.filter((x) => x.group === g && (!actions.some((a) => a.type === x.v) || REPEATABLE.includes(x.v))).map((x) => (
+                <option key={x.v} value={x.v}>
+                  {x.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>
@@ -277,7 +292,7 @@ function RuleEditor({
         <button className="btn ghost" onClick={onCancel}>
           Cancel
         </button>
-        <button className="btn primary" disabled={!valid} onClick={() => onSave({ id: uid(), on: true, trigger, actions })}>
+        <button className="btn primary" disabled={!valid} onClick={() => onSave({ id: initial?.id ?? uid(), on: true, trigger, actions: actions.map((a) => (a.type === 'add_checklist' ? { ...a, items: a.items.map((x) => x.trim()).filter(Boolean) } : a)) })}>
           Save automation
         </button>
       </div>

@@ -184,8 +184,17 @@ export interface BoardData {
 export type AutoTrigger =
   | { type: 'moved_to'; listId: string }
   | { type: 'added_to'; listId: string }
+  | { type: 'created' } // a card is added to any list
   | { type: 'completed' }
-  | { type: 'checklist_done' };
+  | { type: 'uncompleted' }
+  | { type: 'checklist_done' }
+  | { type: 'label_added'; labelId: string }
+  | { type: 'member_added' }
+  | { type: 'priority_set'; priority: Priority }
+  | { type: 'due_set' }
+  | { type: 'comment_added' }
+  | { type: 'attachment_added' }
+  | { type: 'archived' };
 
 /** What an automation does to the card. */
 export type AutoAction =
@@ -197,7 +206,15 @@ export type AutoAction =
   | { type: 'clear_due' }
   | { type: 'add_label'; labelId: string }
   | { type: 'check_all' }
-  | { type: 'notify'; to: 'members' | 'owners' | string; message: string };
+  | { type: 'notify'; to: 'members' | 'owners' | string; message: string }
+  | { type: 'remove_label'; labelId: string }
+  | { type: 'unassign'; userId: string } // '@all' = everyone responsible
+  | { type: 'set_priority'; priority: Priority }
+  | { type: 'start_today' }
+  | { type: 'add_checklist'; items: string[] }
+  | { type: 'add_comment'; text: string }
+  | { type: 'archive' }
+  | { type: 'webhook'; url: string; format: 'json' | 'chat' }; // 'chat' = Slack / Teams / Google Chat / Discord message
 
 export interface AutomationRule {
   id: string;

@@ -2259,3 +2259,17 @@ html.side-rail {
 .cc-sent { display: flex; gap: 10px; align-items: flex-start; background: #dcfff1; color: #216e4e; border-radius: 10px; padding: 10px 12px; }
 .cc-sent > span { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .cc-sent strong { font-size: 14px; }
+.au-wide { flex: 1 1 100% !important; }
+.au-hook { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.au-hook .text-input { flex: 1 1 240px; }
+.au-hook .field-select { flex: 1 1 200px; }
+.au-test { display: inline-flex; align-items: center; gap: 6px; }
+.au-note { flex: 1 1 100%; font-size: 12px; }
+.au-action { position: relative; padding-right: 38px; }
+.au-action .au-x { position: absolute; top: 5px; right: 6px; }
+.cc-comment-btn { margin-top: 10px; display: inline-flex; align-items: center; gap: 6px; background: #e9f2ff; color: #0c66e4; font-weight: 600; }
+.cc-comment-btn:hover { background: #cce0ff; }
+.cc-posted { margin-top: 10px; display: flex; align-items: center; gap: 6px; color: #216e4e; font-weight: 600; font-size: 13.5px; }
+.cc-draft { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.cc-prompt.cc-draft-input { min-height: 72px; border-color: #85b8ff; background: #f8fbff; }
+.cc-draft-actions { display: flex; justify-content: flex-end; gap: 8px; }

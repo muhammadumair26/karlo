@@ -52,7 +52,8 @@ import { MembersPanel } from './MembersPanel';
 import { TableView } from './TableView';
 import { BoardSettingsModal } from './BoardSettings';
 import { AutomationModal } from './AutomationModal';
-import { automationFollowUps } from '../lib/automation';
+import { automationFollowUps, sendWebhooks } from '../lib/automation';
+import { publicOrigin } from '../lib/platform';
 import { DuePrompt } from './DuePrompt';
 import { VoiceAssistant } from './VoiceAssistant';
 import { RunningTimer } from './CardTime';
@@ -152,7 +153,15 @@ export function BoardPage({
       // Board automations ("when a card … then …") run as follow-up changes by the same person.
       if (before.automations?.some((r) => r.on)) {
         const after = boardReducer(before, { ...b, meta: { id: 'auto', at: Date.now(), by: { id: me.id, name: me.name } } } as BoardAction);
-        const follow = automationFollowUps(before, after, b);
+        const ppl = peopleRef.current;
+        const follow = automationFollowUps(before, after, b, new Date(), {
+          by: { id: me.id, name: me.name },
+          boardId: meta.id,
+          boardTitle: meta.title,
+          personName: (id) => ppl.find((p) => p.user_id === id)?.name ?? 'someone',
+          origin: publicOrigin(),
+        });
+        if (follow.webhooks.length) void sendWebhooks(follow.webhooks);
         let state = after;
         for (const f of follow.actions) {
           applyAction(f);
@@ -191,7 +200,7 @@ export function BoardPage({
         void deleteFiles(ids.flatMap((id) => pathsOf(before.cards[id]?.attachments ?? [])));
       }
     },
-    [applyAction, me, meta.id],
+    [applyAction, me, meta.id, meta.title],
   );
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
@@ -768,7 +777,7 @@ export function BoardPage({
         />
       )}
       {panel === 'settings' && data && <BoardSettingsModal data={data} admin={admin} dispatch={dispatch} onClose={closePanel} />}
-      {panel === 'automation' && data && <AutomationModal data={data} admin={admin} people={people} dispatch={dispatch} onClose={closePanel} />}
+      {panel === 'automation' && data && <AutomationModal data={data} admin={admin} people={people} dispatch={dispatch} onClose={closePanel} ctx={{ by: { id: me.id, name: me.name }, boardId: meta.id, boardTitle: meta.title, origin: publicOrigin() }} />}
       {panel === 'fields' && data && (
         <Modal title="Custom fields" onClose={closePanel}>
           <FieldsEditor fields={data.customFields ?? []} dispatch={dispatch} />

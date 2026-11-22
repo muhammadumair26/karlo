@@ -1,13 +1,15 @@
-import { Bot, Check, Copy, FolderGit2, KeyRound, Loader2, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { Bot, Check, Copy, FolderGit2, KeyRound, Loader2, MessageSquare, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
   addProject,
   cancelTask,
+  commentDraft,
   defaultPrompt,
   deleteProject,
   isImageAttachment,
   listProjects,
   newRunnerKey,
+  resultBody,
   runnerLastSeen,
   sendTask,
   useCardClaudeTasks,
@@ -58,8 +60,11 @@ function CopyText({ text, label }: { text: string; label: string }) {
   );
 }
 
-function TaskRow({ t }: { t: ClaudeTask }) {
+function TaskRow({ t, onComment }: { t: ClaudeTask; onComment?: (text: string) => void }) {
   const s = STATUS[t.status];
+  const [draft, setDraft] = useState<string | null>(null);
+  const [posted, setPosted] = useState(false);
+  const body = t.result ? resultBody(t.result) : '';
   const resume = t.session_id ? `cd "${t.project_path}" && claude --resume ${t.session_id}` : '';
   return (
     <div className={`cc-task ${s.cls}`}>
@@ -78,7 +83,41 @@ function TaskRow({ t }: { t: ClaudeTask }) {
           </button>
         )}
       </div>
-      {t.result && <pre className="cc-result">{t.result}</pre>}
+      {body && <pre className="cc-result">{body}</pre>}
+      {/* A short, clean comment on the card in my name */}
+      {onComment && t.status === 'done' && t.result && draft === null &&
+        (posted ? (
+          <div className="cc-posted">
+            <Check size={14} /> Comment added
+          </div>
+        ) : (
+          <button type="button" className="btn cc-comment-btn" onClick={() => setDraft(commentDraft(t.result))}>
+            <MessageSquare size={14} /> Add comment
+          </button>
+        ))}
+      {onComment && draft !== null && (
+        <div className="cc-draft">
+          <label className="cc-label">Your comment (edit if you like)</label>
+          <textarea className="cc-prompt cc-draft-input" value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} autoFocus />
+          <div className="cc-draft-actions">
+            <button type="button" className="btn ghost" onClick={() => setDraft(null)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn primary"
+              disabled={!draft.trim()}
+              onClick={() => {
+                onComment(draft.trim());
+                setDraft(null);
+                setPosted(true);
+              }}
+            >
+              Add comment
+            </button>
+          </div>
+        </div>
+      )}
       {resume && (t.status === 'done' || t.status === 'failed' || t.status === 'working') && (
         <div className="cc-resume">
           <span className="muted">Continue this session in Terminal:</span>
@@ -256,7 +295,7 @@ function Setup({ projects, setProjects, onDone }: { projects: ClaudeProject[]; s
 }
 
 /** "Ask Claude" in the card window — only shown to platform admins. */
-export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Card; boardId: string; boardTitle: string; listTitle?: string }) {
+export function CardClaude({ card, boardId, boardTitle, listTitle, onComment }: { card: Card; boardId: string; boardTitle: string; listTitle?: string; onComment?: (text: string) => void }) {
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<'send' | 'setup'>('send');
   const [projects, setProjects] = useState<ClaudeProject[] | null>(null);
@@ -438,7 +477,7 @@ export function CardClaude({ card, boardId, boardTitle, listTitle }: { card: Car
                   <h5 className="bs-h">On this card</h5>
                   <div className="cc-tasks">
                     {tasks.map((t) => (
-                      <TaskRow key={t.id} t={t} />
+                      <TaskRow key={t.id} t={t} onComment={onComment} />
                     ))}
                   </div>
                 </>

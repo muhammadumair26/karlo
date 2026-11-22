@@ -140,7 +140,7 @@ export async function sendTask(opts: {
       board_id: opts.boardId,
       card_id: opts.card.id,
       card_title: opts.card.title,
-      prompt: opts.prompt,
+      prompt: `${opts.prompt}\n\n${COMMENT_ASK}`,
       images,
     })
     .select('*')
@@ -180,3 +180,31 @@ export function useCardClaudeTasks(cardId: string, enabled: boolean): ClaudeTask
   }, [cardId, enabled]);
   return tasks;
 }
+
+/** Asked of Claude with every task, so a short note for the card comes back with the result. */
+export const COMMENT_ASK =
+  "When you are finished, end your reply with a line that says exactly \"CARD COMMENT:\" followed by a short, professional status update for my team and client, written as me in the first person. Use 2-3 complete sentences in clear, polished business English: state what was resolved or delivered, the outcome, and (if useful) what they should check next. Example: \"I have resolved the login issue on mobile. The sign-in button now responds correctly on the first tap across devices. Please verify on your end and let me know if anything needs adjusting.\" No markdown, code, file paths or technical jargon.";
+
+const plain = (t: string) =>
+  t
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+.*$/gm, " ")
+    .replace(/^\s*[-*•]\s+/gm, "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** A clean 2-3 line comment (in my words) from what Claude reported. */
+export function commentDraft(result: string | null): string {
+  if (!result) return "";
+  const m = result.match(/CARD COMMENT:\s*([\s\S]+)$/i);
+  if (m) return plain(m[1]).slice(0, 500);
+  const sentences = plain(result).match(/[^.!?]+[.!?]+/g) ?? [plain(result)];
+  return sentences.slice(0, 3).join(" ").replace(/\s+/g, " ").trim().slice(0, 400);
+}
+
+/** The result without the "CARD COMMENT:" part (it is shown as its own box). */
+export const resultBody = (result: string) => result.replace(/\n*\s*CARD COMMENT:[\s\S]*$/i, "").trim();
