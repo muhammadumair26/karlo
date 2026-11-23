@@ -27,6 +27,80 @@ export interface NotificationRow {
 /** @handle used for mentions: the part of the email before "@". */
 export const handleOf = (p: Pick<Person, 'email'>) => p.email.split('@')[0];
 
+/** Where a mention sits in a text box, which shows it by name ("@Zeeshan Ahmed") instead of the saved "@handle". */
+export interface MentionSpan {
+  start: number;
+  end: number;
+  userId: string;
+}
+export interface MentionView {
+  text: string;
+  spans: MentionSpan[];
+}
+
+/** Saved text (with @handles) → what a text box shows (with @names), plus where each name is. */
+export function mentionsToNames(text: string, people: Person[]): MentionView {
+  const spans: MentionSpan[] = [];
+  let out = '';
+  let last = 0;
+  for (const m of text.matchAll(/@([\w.+-]+)/g)) {
+    const raw = m[1].replace(/\.+$/, ''); // "thanks @ali." — the dot ends the sentence
+    const who = people.find((p) => handleOf(p).toLowerCase() === raw.toLowerCase());
+    if (!who || m.index === undefined) continue;
+    out += text.slice(last, m.index);
+    const label = `@${who.name}`;
+    spans.push({ start: out.length, end: out.length + label.length, userId: who.user_id });
+    out += label;
+    last = m.index + 1 + raw.length;
+  }
+  return { text: out + text.slice(last), spans };
+}
+
+/** What a text box shows → the text to save: each name mention back to its @handle. */
+export function namesToMentions(view: MentionView, people: Person[]): string {
+  let out = '';
+  let last = 0;
+  for (const sp of [...view.spans].sort((a, b) => a.start - b.start)) {
+    const who = people.find((p) => p.user_id === sp.userId);
+    if (!who) continue;
+    out += view.text.slice(last, sp.start) + `@${handleOf(who)}`;
+    last = sp.end;
+  }
+  return out + view.text.slice(last);
+}
+
+/**
+ * The text box changed from `prev` to `next`. Mentions outside the change keep their place; one that
+ * was cut into (e.g. backspace at its end) is removed whole, like in chat apps.
+ */
+export function editMentionView(prev: MentionView, next: string): MentionView {
+  const a = prev.text;
+  let p = 0;
+  while (p < a.length && p < next.length && a[p] === next[p]) p++;
+  let q = 0;
+  while (q < a.length - p && q < next.length - p && a[a.length - 1 - q] === next[next.length - 1 - q]) q++;
+  const oldEnd = a.length - q; // changed part: a[p, oldEnd) → next[p, newEnd)
+  const newEnd = next.length - q;
+  const delta = next.length - a.length;
+  const spans: MentionSpan[] = [];
+  const cut: [number, number][] = []; // leftover pieces of broken mentions, in `next`
+  for (const sp of prev.spans) {
+    if (sp.end <= p) spans.push(sp);
+    else if (sp.start >= oldEnd) spans.push({ ...sp, start: sp.start + delta, end: sp.end + delta });
+    else {
+      if (sp.start < p) cut.push([sp.start, p]);
+      if (sp.end > oldEnd) cut.push([newEnd, sp.end + delta]);
+    }
+  }
+  let text = next;
+  for (const [s, e] of cut.sort((x, y) => y[0] - x[0])) {
+    text = text.slice(0, s) + text.slice(e);
+    const n = e - s;
+    for (const sp of spans) if (sp.start >= e) (sp.start -= n), (sp.end -= n);
+  }
+  return { text, spans };
+}
+
 /** User ids of people @mentioned in a piece of text. */
 export function mentionedIds(text: string, people: Person[]): string[] {
   const handles = new Set((text.match(/@[\w.+-]+/g) ?? []).map((m) => m.slice(1).toLowerCase()));

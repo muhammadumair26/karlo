@@ -1,5 +1,6 @@
-import { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
+import { forwardRef, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { handleOf } from '../lib/notify';
+import { editMentionView, mentionsToNames, namesToMentions } from '../lib/notifyRules';
 import type { Person } from '../lib/types';
 import { Avatar } from './ui';
 
@@ -8,6 +9,7 @@ type El = HTMLTextAreaElement | HTMLInputElement;
 /**
  * A textarea/input with @mention suggestions. Typing "@" lists everyone on the board;
  * keep typing to narrow it down, ↑/↓ to choose, Enter or Tab to insert.
+ * Mentions show as the person's name; the text is saved with their @handle.
  */
 export const MentionInput = forwardRef<
   El | null,
@@ -27,6 +29,8 @@ export const MentionInput = forwardRef<
   }
 >(function MentionInput({ value, onChange, people, meId, multiline, placeholder, autoFocus, className, onFocus, onSubmit, onEscape }, ref) {
   const inner = useRef<El>(null);
+  const view = useMemo(() => mentionsToNames(value, people), [value, people]);
+  const shown = view.text;
   useImperativeHandle(ref, () => inner.current as El);
   const [query, setQuery] = useState<string | null>(null);
   const [active, setActive] = useState(0);
@@ -68,6 +72,7 @@ export const MentionInput = forwardRef<
       : others.filter((p) => handleOf(p).toLowerCase().includes(query) || p.name.toLowerCase().includes(query)).slice(0, 8);
 
   const detect = (v: string, caret: number) => {
+    if (view.spans.some((sp) => caret > sp.start && caret <= sp.end)) return setQuery(null);
     const m = v.slice(0, caret).match(/(?:^|\s|\()@([\w.+-]*)$/);
     setQuery(m ? m[1].toLowerCase() : null);
     setActive(0);
@@ -75,13 +80,19 @@ export const MentionInput = forwardRef<
 
   const insert = (p: Person) => {
     const el = inner.current;
-    const caret = el?.selectionStart ?? value.length;
-    const before = value.slice(0, caret).replace(/@([\w.+-]*)$/, `@${handleOf(p)} `);
-    onChange(before + value.slice(caret));
+    const caret = el?.selectionStart ?? shown.length;
+    const from = shown.slice(0, caret).search(/@([\w.+-]*)$/);
+    if (from < 0) return;
+    const label = `@${p.name}`;
+    const added = label.length + 1 - (caret - from);
+    const text = shown.slice(0, from) + label + ' ' + shown.slice(caret);
+    const spans = [...view.spans.map((sp) => (sp.start >= caret ? { ...sp, start: sp.start + added, end: sp.end + added } : sp)), { start: from, end: from + label.length, userId: p.user_id }];
+    onChange(namesToMentions({ text, spans }, people));
     setQuery(null);
+    const cursor = from + label.length + 1;
     setTimeout(() => {
       el?.focus();
-      el?.setSelectionRange(before.length, before.length);
+      el?.setSelectionRange(cursor, cursor);
     }, 0);
   };
 
@@ -120,14 +131,21 @@ export const MentionInput = forwardRef<
   };
 
   const common = {
-    value,
+    value: shown,
     placeholder,
     autoFocus,
     onFocus,
     onKeyDown,
     onBlur: () => setTimeout(() => setQuery(null), 150),
     onChange: (e: React.ChangeEvent<El>) => {
-      onChange(e.target.value);
+      const el = e.target;
+      const next = editMentionView(view, el.value);
+      onChange(namesToMentions(next, people));
+      // A whole mention was removed: keep the cursor where the person was typing.
+      if (next.text !== el.value) {
+        const caret = Math.max(0, (el.selectionStart ?? 0) - (el.value.length - next.text.length));
+        setTimeout(() => el.setSelectionRange(caret, caret), 0);
+      }
       detect(e.target.value, e.target.selectionStart ?? e.target.value.length);
     },
     onClick: (e: React.MouseEvent<El>) => detect(e.currentTarget.value, e.currentTarget.selectionStart ?? 0),
