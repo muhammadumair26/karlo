@@ -154,10 +154,18 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function findList(s: string, lists: string[]) {
   const sorted = [...lists].sort((a, b) => b.length - a.length);
   for (const l of sorted) {
-    const n = l.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    const n = l.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
     if (!n) continue;
     const m = s.match(new RegExp(`\\b(?:(?:in|into|to|on|under)\\s+(?:the\\s+)?)?${esc(n)}(?:\\s+(?:list|column))?\\b`));
     if (m) return { list: l, match: m[0] };
+  }
+  // A part of a list name, when it's clearly a list: "in testing" → "Testing - In Progress".
+  for (const l of sorted) {
+    const parts = l.toLowerCase().split(/\s*[-/|–—:]\s*/).map((x) => x.replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim()).filter((x) => x.length > 2);
+    for (const part of parts) {
+      const m = s.match(new RegExp(`\\b(?:in|into|to|under)\\s+(?:the\\s+)?${esc(part)}(?:\\s+(?:list|column))?\\b`));
+      if (m) return { list: l, match: m[0] };
+    }
   }
   return null;
 }
@@ -228,14 +236,22 @@ export function parseVoice(raw: string, ctx: Ctx): VoiceIntent {
 
   // ---------------------------------------------------------------- card
   let t = s;
-  const desc = t.match(/\b(?:details?|description|notes?|saying|with note)\s*:?\s+(.*)$/);
+  const desc = t.match(/(?:\b(?:and|with|,)\s+)?(?:\bthe\s+)?\b(?:details?|description|notes?|saying|with note)\s*(?:is|are|should be|will be|says|:)?\s*:?\s+(.*)$/);
   if (desc) {
     out.description = cap(tidy(desc[1]));
     t = t.replace(desc[0], ' ');
   }
-  const dt = findDate(t, now);
+  // "…where the title is X" / "title X" / "named X": everything after that is the title.
+  const named = t.match(/(?:\b(?:where|with|and|whose|,)\s+)?(?:\bthe\s+)?\b(?:title\s*(?:is|should be|will be|:)?|(?:name|heading)\s*(?:is|should be|will be|:))\s+(.*)$/);
+  let explicitTitle = '';
+  if (named) {
+    explicitTitle = named[1];
+    t = t.replace(named[0], ' ');
+  }
+  const dt = findDate(t + ' ' + explicitTitle, now);
   if (dt) {
     out.due = dt.date;
+    explicitTitle = explicitTitle.replace(dt.match, ' ');
     t = t.replace(new RegExp(`\\b(?:(?:it'?s\\s+)?due(?:\\s+date)?(?:\\s+is)?|by|before|until|deadline|for)?\\s*${esc(dt.match.trim())}`), ' ');
   }
   t = t.replace(/\b(?:due(?: date)?|deadline)\b/g, ' ');
@@ -253,7 +269,18 @@ export function parseVoice(raw: string, ctx: Ctx): VoiceIntent {
     .replace(/^\s*(?:please\s+)?(?:can you\s+)?(?:add|create|make|put|new)?\s*(?:a\s+)?(?:new\s+)?(?:task|card|todo|to-do)?\s*(?:called|named|titled|to|:)?\s+/, ' ')
     .replace(/^\s*remind me to\s+/, ' ')
     .replace(/\b(?:and\s+)?assign(?:ed)?(?:\s+it)?(?:\s+to)?\b/g, ' ');
-  out.title = cap(tidy(t));
+  if (explicitTitle) {
+    for (const p of [findPerson(explicitTitle, ctx.people)]) if (p && !out.member) {
+      out.member = p.person;
+      explicitTitle = explicitTitle.replace(p.match, ' ');
+    }
+    const l2 = !out.list ? findList(explicitTitle, ctx.lists) : null;
+    if (l2) {
+      out.list = l2.list;
+      explicitTitle = explicitTitle.replace(l2.match, ' ');
+    }
+  }
+  out.title = cap(tidy(explicitTitle || t));
   if (!out.title) return { ...out, intent: 'unknown', reply: "I didn't catch that. Try “Add task design logo due Friday”." };
   out.intent = 'add_card';
   out.reply = `New card “${out.title}”. Check and add.`;
