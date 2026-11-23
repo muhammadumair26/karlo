@@ -2273,3 +2273,23 @@ html.side-rail {
 .cc-draft { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .cc-prompt.cc-draft-input { min-height: 72px; border-color: #85b8ff; background: #f8fbff; }
 .cc-draft-actions { display: flex; justify-content: flex-end; gap: 8px; }
+/* Ask Claude: the conversation on the card */
+.btn.cc-stop, .btn.ghost.cc-stop { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; padding: 3px 10px; color: #ae2e24; background: #ffeceb; border-radius: 999px; font-weight: 700; }
+.cc-stop svg { fill: currentColor; }
+.cc-bubble { margin-top: 8px; font-size: 13.5px; line-height: 1.5; border-radius: 12px; padding: 8px 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cc-bubble.you { margin-left: auto; max-width: 85%; width: fit-content; background: #e9f2ff; color: #09326c; border-bottom-right-radius: 4px; }
+.cc-bubble.claude { background: #fbf6f3; border: 1px solid #f3e3da; border-bottom-left-radius: 4px; white-space: normal; }
+.cc-bubble.claude.failed { background: #fff5f4; border-color: #ffd5d2; }
+.cc-bubble.claude.muted { color: #626f86; }
+.cc-bubble .cc-result { background: none; padding: 0; margin: 0; }
+.cc-working { display: flex; align-items: center; gap: 6px; color: #9a4a2c; font-weight: 700; }
+.cc-steps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; color: #626f86; font-size: 12.5px; }
+.cc-steps li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc-steps li.now { color: #172b4d; font-weight: 600; }
+.cc-steps-toggle { padding: 0; margin-top: 2px; }
+.cc-reply { display: flex; align-items: flex-end; gap: 8px; margin-top: 10px; }
+.cc-reply textarea { flex: 1; min-height: 40px; max-height: 140px; resize: vertical; font: inherit; font-size: 14px; border: 1px solid #dcdfe4; border-radius: 20px; padding: 9px 14px; background: #f8f9fa; }
+.cc-reply textarea:focus { outline: 2px solid #388bff; border-color: transparent; background: #fff; }
+.cc-reply-send { width: 40px; height: 40px; flex-shrink: 0; border-radius: 50%; border: none; background: #d97757; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.cc-reply-send:disabled { opacity: .45; cursor: default; }
+.cc-mac-toggle { margin-top: 6px; color: #626f86; padding: 0; }

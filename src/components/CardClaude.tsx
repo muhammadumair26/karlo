@@ -1,21 +1,26 @@
-import { Bot, Check, Copy, FolderGit2, KeyRound, Loader2, MessageSquare, Plus, Settings2, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Bot, Check, Copy, FolderGit2, KeyRound, Loader2, MessageSquare, Plus, Send, Settings2, Square, Trash2 } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
   addProject,
   cancelTask,
+  claudeThreads,
   commentDraft,
   defaultPrompt,
   deleteProject,
   isImageAttachment,
   listProjects,
   newRunnerKey,
+  ownWords,
   resultBody,
   runnerLastSeen,
+  sendReply,
   sendTask,
+  threadSession,
   useCardClaudeTasks,
   type ClaudeProject,
   type ClaudeStatus,
   type ClaudeTask,
+  type ClaudeThread,
   type MacFolder,
   type MacState,
 } from '../lib/claude';
@@ -60,29 +65,39 @@ function CopyText({ text, label }: { text: string; label: string }) {
   );
 }
 
-function TaskRow({ t, onComment }: { t: ClaudeTask; onComment?: (text: string) => void }) {
-  const s = STATUS[t.status];
+/** Claude's side of one message: live steps while working, then its answer (and a card comment from it). */
+function ClaudeAnswer({ t, onComment }: { t: ClaudeTask; onComment?: (text: string) => void }) {
+  const [allSteps, setAllSteps] = useState(false);
   const [draft, setDraft] = useState<string | null>(null);
   const [posted, setPosted] = useState(false);
   const body = t.result ? resultBody(t.result) : '';
-  const resume = t.session_id ? `cd "${t.project_path}" && claude --resume ${t.session_id}` : '';
+  const steps = (t.progress ?? '').split('\n').filter(Boolean);
+  const shown = allSteps ? steps : steps.slice(-4);
+
+  if (t.status === 'queued') return <div className="cc-bubble claude muted">Waiting for your Mac…</div>;
+  if (t.status === 'cancelled') return <div className="cc-bubble claude muted">Stopped.</div>;
   return (
-    <div className={`cc-task ${s.cls}`}>
-      <div className="cc-task-head">
-        <span className={`cc-status ${s.cls}`}>
-          {t.status === 'working' && <Loader2 size={13} className="spin" />}
-          {s.label}
-        </span>
-        <span className="muted">
-          {t.project_name} · {ago(t.finished_at ?? t.started_at ?? t.created_at)}
-        </span>
-        <span className="header-spacer" />
-        {t.status === 'queued' && (
-          <button type="button" className="btn ghost cc-copy" onClick={() => void cancelTask(t.id)}>
-            <X size={14} /> Cancel
-          </button>
-        )}
-      </div>
+    <div className={`cc-bubble claude ${t.status === 'failed' ? 'failed' : ''}`}>
+      {t.status === 'working' && (
+        <>
+          <div className="cc-working">
+            <Loader2 size={14} className="spin" /> Claude is working…
+          </div>
+          {steps.length > 4 && (
+            <button type="button" className="link-btn cc-steps-toggle" onClick={() => setAllSteps(!allSteps)}>
+              {allSteps ? 'Show fewer steps' : `Show all ${steps.length} steps`}
+            </button>
+          )}
+          <ul className="cc-steps">
+            {shown.map((st, i) => (
+              <li key={i} className={i === shown.length - 1 ? 'now' : ''}>
+                {st}
+              </li>
+            ))}
+            {steps.length === 0 && <li>Starting…</li>}
+          </ul>
+        </>
+      )}
       {body && <pre className="cc-result">{body}</pre>}
       {/* A short, clean comment on the card in my name */}
       {onComment && t.status === 'done' && t.result && draft === null &&
@@ -118,12 +133,94 @@ function TaskRow({ t, onComment }: { t: ClaudeTask; onComment?: (text: string) =
           </div>
         </div>
       )}
-      {resume && (t.status === 'done' || t.status === 'failed' || t.status === 'working') && (
-        <div className="cc-resume">
-          <span className="muted">Continue this session in Terminal:</span>
-          <code>{resume}</code>
-          <CopyText text={resume} label="Copy" />
-        </div>
+    </div>
+  );
+}
+
+/** One conversation with Claude: what you asked, what it's doing, its answers, and a reply box. */
+function Thread({ th, onComment }: { th: ClaudeThread; onComment?: (text: string) => void }) {
+  const last = th.last;
+  const s = STATUS[last.status];
+  const busy = last.status === 'queued' || last.status === 'working';
+  const session = threadSession(th);
+  const [reply, setReply] = useState('');
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [mac, setMac] = useState(false);
+  const resume = session ? `cd "${last.project_path}" && claude --resume ${session}` : '';
+
+  const send = async () => {
+    const text = reply.trim();
+    if (!text) return;
+    setSending(true);
+    setErr(null);
+    try {
+      await sendReply(th, text);
+      setReply('');
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className={`cc-task ${s.cls}`}>
+      <div className="cc-task-head">
+        <span className={`cc-status ${s.cls}`}>{s.label}</span>
+        <span className="muted">
+          {last.project_name} · {ago(last.finished_at ?? last.started_at ?? last.created_at)}
+        </span>
+        <span className="header-spacer" />
+        {busy && (
+          <button type="button" className="btn ghost cc-stop" onClick={() => void cancelTask(last.id)}>
+            <Square size={11} /> Stop
+          </button>
+        )}
+      </div>
+      {th.tasks.map((t, i) => (
+        <Fragment key={t.id}>
+          <div className="cc-bubble you">{ownWords(t) || (i === 0 ? 'Sent the card to Claude' : '')}</div>
+          <ClaudeAnswer t={t} onComment={onComment} />
+        </Fragment>
+      ))}
+      {session && (
+        <>
+          <form
+            className="cc-reply"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void send();
+            }}
+          >
+            <textarea
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              rows={1}
+              disabled={sending}
+              placeholder={busy ? 'Reply — Claude reads it when it finishes' : 'Reply to Claude…'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
+            />
+            <button type="submit" className="cc-reply-send" disabled={!reply.trim() || sending} aria-label="Send reply" title="Send (Enter)">
+              {sending ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+            </button>
+          </form>
+          {err && <div className="auth-error">{err}</div>}
+          <button type="button" className="link-btn cc-mac-toggle" onClick={() => setMac(!mac)}>
+            {mac ? 'Hide' : 'Open this chat on your Mac instead'}
+          </button>
+          {mac && (
+            <div className="cc-resume">
+              <code>{resume}</code>
+              <CopyText text={resume} label="Copy" />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -314,6 +411,7 @@ export function CardClaude({ card, boardId, boardTitle, listTitle, onComment }: 
   const [sent, setSent] = useState<string | null>(null);
   const tasks = useCardClaudeTasks(card.id, true);
   const active = tasks.find((t) => t.status === 'queued' || t.status === 'working');
+  const threads = useMemo(() => claudeThreads(tasks), [tasks]);
 
   const images = useMemo(() => card.attachments.filter(isImageAttachment), [card.attachments]);
   const urls = useSignedUrls(open ? images.map((a) => a.path!) : []);
@@ -476,8 +574,8 @@ export function CardClaude({ card, boardId, boardTitle, listTitle, onComment }: 
                 <>
                   <h5 className="bs-h">On this card</h5>
                   <div className="cc-tasks">
-                    {tasks.map((t) => (
-                      <TaskRow key={t.id} t={t} onComment={onComment} />
+                    {threads.map((th) => (
+                      <Thread key={th.id} th={th} onComment={onComment} />
                     ))}
                   </div>
                 </>

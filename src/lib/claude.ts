@@ -22,6 +22,7 @@ export interface ClaudeTask {
   project_path: string;
   card_id: string;
   card_title: string;
+  board_id?: string | null;
   prompt: string;
   images: { name: string; url: string }[];
   status: ClaudeStatus;
@@ -30,6 +31,9 @@ export interface ClaudeTask {
   created_at: string;
   started_at: string | null;
   finished_at: string | null;
+  thread_id?: string | null; // the first task of the conversation (replies only)
+  resume_session?: string | null; // the Claude session a reply continues
+  progress?: string | null; // what Claude is doing, one step per line (while working)
 }
 
 function sb() {
@@ -149,10 +153,64 @@ export async function sendTask(opts: {
   return data as ClaudeTask;
 }
 
+/** Stop a task: one that's waiting, or one Claude is working on (the Mac stops it within a few seconds). */
 export async function cancelTask(id: string) {
-  const { error } = await sb().from('claude_tasks').update({ status: 'cancelled', finished_at: new Date().toISOString() }).eq('id', id).eq('status', 'queued');
+  const { error } = await sb().from('claude_tasks').update({ status: 'cancelled', finished_at: new Date().toISOString() }).eq('id', id).in('status', ['queued', 'working']);
   if (error) throw new Error(error.message);
 }
+
+/** A conversation with Claude: the first task and the replies after it, oldest first. */
+export interface ClaudeThread {
+  id: string;
+  tasks: ClaudeTask[];
+  last: ClaudeTask;
+}
+
+export function claudeThreads(tasks: ClaudeTask[]): ClaudeThread[] {
+  const by = new Map<string, ClaudeTask[]>();
+  for (const t of tasks) {
+    const k = t.thread_id ?? t.id;
+    by.set(k, [...(by.get(k) ?? []), t]);
+  }
+  return [...by.entries()]
+    .map(([id, ts]) => {
+      const sorted = ts.sort((a, b) => a.created_at.localeCompare(b.created_at));
+      return { id, tasks: sorted, last: sorted[sorted.length - 1] };
+    })
+    .sort((a, b) => b.last.created_at.localeCompare(a.last.created_at));
+}
+
+/** The Claude session a reply in this conversation should continue (none until Claude has started). */
+export const threadSession = (th: ClaudeThread) => [...th.tasks].reverse().map((t) => t.session_id ?? t.resume_session).find(Boolean) ?? null;
+
+/** Reply in a conversation: Claude continues the same session on the Mac, with everything it already knows. */
+export async function sendReply(th: ClaudeThread, text: string) {
+  const session = threadSession(th);
+  if (!session) throw new Error('Claude has not started yet — wait a moment and try again.');
+  const first = th.tasks[0];
+  const { error } = await sb().from('claude_tasks').insert({
+    project_name: first.project_name,
+    project_path: first.project_path,
+    board_id: first.board_id ?? null,
+    card_id: first.card_id,
+    card_title: first.card_title ?? '',
+    prompt: `${text.trim()}\n\n${COMMENT_ASK}`,
+    images: [],
+    thread_id: th.id,
+    resume_session: session,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** What I wrote, without the instructions Karlo adds (shown as the "You" message). */
+export const ownWords = (t: ClaudeTask) => {
+  const p = (t.prompt ?? '').replace(COMMENT_ASK, '').trim();
+  if (!t.resume_session) {
+    const mine = p.match(/My instructions:\n([\s\S]+)$/);
+    return mine ? mine[1].trim() : '';
+  }
+  return p;
+};
 
 /** Claude tasks for one card, newest first, kept live. */
 export function useCardClaudeTasks(cardId: string, enabled: boolean): ClaudeTask[] {
@@ -162,7 +220,7 @@ export function useCardClaudeTasks(cardId: string, enabled: boolean): ClaudeTask
     const s = supabase;
     let live = true;
     const load = async () => {
-      const { data } = await s.from('claude_tasks').select('*').eq('card_id', cardId).order('created_at', { ascending: false }).limit(10);
+      const { data } = await s.from('claude_tasks').select('*').eq('card_id', cardId).order('created_at', { ascending: false }).limit(30);
       if (live) setTasks((data ?? []) as ClaudeTask[]);
     };
     void load();

@@ -3,6 +3,8 @@
 //
 // Picks up cards you sent with "Ask Claude" in Karlo, runs Claude Code in the chosen project folder
 // (with the card's text and images), and reports back to the card: waiting → working → done / failed.
+// While Claude works, the card shows what it is doing; replies from Karlo continue the same session,
+// and "Stop" in Karlo stops the run.
 //
 //   node ~/.karlo/claude-runner.mjs --setup <key>   save the key from Karlo and start on every login
 //   node ~/.karlo/claude-runner.mjs --status        is it set up / running?
@@ -142,13 +144,18 @@ async function downloadImages(task, dir) {
 }
 
 function buildPrompt(task, images) {
+  const imgNote = images.length
+    ? `- The card's images are saved here — open and look at them, they show what the task is about:\n${images.map((f) => `  - ${f}`).join('\n')}`
+    : '- The card has no images.';
+  // A reply in the same conversation: Claude already has the earlier notes.
+  if (task.resume_session) {
+    return [task.prompt, '', '---', 'This is a follow-up message from Karlo in the same conversation.', images.length ? imgNote : '', '- Same rules as before: do not commit, push or deploy unless asked; finish with a short plain-language summary.'].filter(Boolean).join('\n');
+  }
   const notes = [
     '',
     '---',
     'Notes from Karlo (sent from a card by the project owner):',
-    images.length
-      ? `- The card's images are saved here — open and look at them, they show what the task is about:\n${images.map((f) => `  - ${f}`).join('\n')}`
-      : '- The card has no images.',
+    imgNote,
     '- Work in this project folder. Make the change, then run the project\'s own checks (type check, lint, tests) if it has them.',
     '- Do not commit, push or deploy unless the task above asks for it.',
     '- Finish with a short, plain-language summary: what you changed (files), anything you could not do, and how to check it.',
@@ -156,17 +163,94 @@ function buildPrompt(task, images) {
   return task.prompt + '\n' + notes.join('\n');
 }
 
-function runClaude(conf, task, prompt, dir, sessionId) {
+// ---- live progress: a plain line for each thing Claude does, shown on the card while it works
+const short = (t, n = 90) => {
+  const one = String(t ?? '').replace(/\s+/g, ' ').trim();
+  return one.length > n ? one.slice(0, n - 1) + '…' : one;
+};
+const fileName = (f) => (f ? path.basename(String(f)) : '');
+
+function describeTool(name, input = {}) {
+  switch (name) {
+    case 'Read':
+      return `📄 Reading ${fileName(input.file_path)}`;
+    case 'Edit':
+    case 'MultiEdit':
+      return `✏️ Editing ${fileName(input.file_path)}`;
+    case 'Write':
+      return `📝 Writing ${fileName(input.file_path)}`;
+    case 'NotebookEdit':
+      return `✏️ Editing ${fileName(input.notebook_path)}`;
+    case 'Bash':
+      return `▶️ Running: ${short(input.description || input.command, 80)}`;
+    case 'Grep':
+      return `🔎 Searching for “${short(input.pattern, 50)}”`;
+    case 'Glob':
+      return `🔎 Looking for files ${short(input.pattern, 50)}`;
+    case 'WebFetch':
+      try {
+        return `🌐 Opening ${new URL(input.url).host}`;
+      } catch {
+        return '🌐 Opening a web page';
+      }
+    case 'WebSearch':
+      return `🌐 Searching the web for “${short(input.query, 50)}”`;
+    case 'Task':
+    case 'Agent':
+      return `🧑‍💻 Helper: ${short(input.description || input.prompt, 70)}`;
+    case 'TodoWrite':
+    case 'TaskCreate':
+    case 'TaskUpdate':
+      return '🗒️ Updating its to-do list';
+    default:
+      return `🔧 ${name.replace(/^mcp__[^_]+__/, '')}`;
+  }
+}
+
+function runClaude(conf, task, prompt, dir, sessionId, onProgress) {
   return new Promise((resolve) => {
-    const args = ['-p', prompt, '--permission-mode', 'auto', '--name', `Karlo: ${task.card_title}`.slice(0, 80), '--session-id', sessionId, '--add-dir', dir, '--output-format', 'json'];
+    const args = ['-p', prompt, '--permission-mode', 'auto', '--add-dir', dir, '--output-format', 'stream-json', '--verbose'];
+    if (task.resume_session) args.push('--resume', task.resume_session);
+    else args.push('--name', `Karlo: ${task.card_title}`.slice(0, 80), '--session-id', sessionId);
     const child = spawn(conf.claudePath, args, {
       cwd: task.project_path,
       env: { ...process.env, PATH: [...PATHS, process.env.PATH ?? ''].join(':') },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    let out = '';
+    let buf = '';
     let err = '';
-    child.stdout.on('data', (d) => (out += d));
+    let final = null;
+    let session = null;
+    const steps = [];
+    let stopped = false;
+    const add = (line) => {
+      if (!line || steps[steps.length - 1] === line) return;
+      steps.push(line);
+      if (steps.length > 60) steps.splice(0, steps.length - 60);
+      onProgress(steps.join('\n'));
+    };
+    child.stdout.on('data', (d) => {
+      buf += d;
+      let i;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line) continue;
+        let o;
+        try {
+          o = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        if (o.session_id) session = o.session_id;
+        if (o.type === 'assistant') {
+          for (const c of o.message?.content ?? []) {
+            if (c.type === 'tool_use') add(describeTool(c.name, c.input));
+            else if (c.type === 'text' && c.text?.trim()) add(`💬 ${short(c.text, 160)}`);
+          }
+        } else if (o.type === 'result') final = o;
+      }
+    });
     child.stderr.on('data', (d) => (err += d));
     const timer = setTimeout(() => {
       err += '\nStopped after 90 minutes.';
@@ -174,24 +258,24 @@ function runClaude(conf, task, prompt, dir, sessionId) {
     }, MAX_RUN_MS);
     child.on('close', (code) => {
       clearTimeout(timer);
-      let parsed = null;
-      try {
-        parsed = JSON.parse(out.trim().split('\n').filter(Boolean).pop() ?? '');
-      } catch {
-        /* not JSON */
-      }
-      if (parsed && typeof parsed.result === 'string') resolve({ ok: !parsed.is_error && code === 0, text: parsed.result });
-      else resolve({ ok: false, text: (err || out || `Claude exited with code ${code}`).trim().slice(-4000) });
+      if (stopped) return resolve({ ok: false, stopped: true, text: 'Stopped from Karlo.', session });
+      if (final && typeof final.result === 'string') resolve({ ok: !final.is_error && code === 0, text: final.result, session: final.session_id ?? session });
+      else resolve({ ok: false, text: (err || `Claude exited with code ${code}`).trim().slice(-4000), session });
     });
     child.on('error', (e) => {
       clearTimeout(timer);
-      resolve({ ok: false, text: `Could not start Claude Code: ${e.message}` });
+      resolve({ ok: false, text: `Could not start Claude Code: ${e.message}`, session });
     });
+    // lets handle() stop the run when it's cancelled in Karlo
+    task._stop = () => {
+      stopped = true;
+      child.kill('SIGTERM');
+    };
   });
 }
 
 async function handle(conf, task) {
-  log(`task ${task.id} — "${task.card_title}" → ${task.project_name} (${task.project_path})`);
+  log(`task ${task.id} — "${task.card_title}" → ${task.project_name} (${task.project_path})${task.resume_session ? ' [reply]' : ''}`);
   if (!fs.existsSync(task.project_path)) {
     await update(conf, task.id, 'failed', { result: `The project folder was not found on this Mac:\n${task.project_path}\n\nFix the folder in Karlo → Ask Claude → Projects & Mac.` });
     return;
@@ -199,11 +283,41 @@ async function handle(conf, task) {
   const dir = path.join(TASKS, task.id);
   fs.mkdirSync(dir, { recursive: true });
   const images = await downloadImages(task, dir);
-  const sessionId = randomUUID();
+  const sessionId = task.resume_session || randomUUID();
   await update(conf, task.id, 'working', { session: sessionId });
-  const r = await runClaude(conf, task, buildPrompt(task, images), dir, sessionId);
+
+  // Send what Claude is doing every few seconds; stop if the task was cancelled in Karlo.
+  let latest = null;
+  let sent = null;
+  let flushing = false;
+  const flush = async () => {
+    if (flushing) return;
+    flushing = true;
+    try {
+      const text = latest;
+      const st = await rpc(conf, 'claude_runner_progress', { p_key: conf.key, p_id: task.id, p_progress: text ?? '' });
+      sent = text;
+      if (st === 'cancelled' || st === 'gone') task._stop?.();
+    } catch (e) {
+      if (!/does not exist|Could not find/i.test(e.message)) log(`  progress: ${e.message}`);
+    } finally {
+      flushing = false;
+    }
+  };
+  let ticks = 0;
+  const ticker = setInterval(() => {
+    ticks++;
+    if (latest !== sent || ticks % 4 === 0) void flush(); // every 3 s when something new, else every 12 s to check for "Stop"
+  }, 3000);
+
+  const r = await runClaude(conf, task, buildPrompt(task, images), dir, sessionId, (text) => (latest = text)).finally(() => clearInterval(ticker));
+  if (r.stopped) {
+    log('  stopped from Karlo');
+    return;
+  }
+  await flush();
   if (!r.ok && /authenticat|log ?in|oauth/i.test(r.text)) r.text += '\n\nClaude Code on your Mac needs you to sign in: open Terminal, run `claude`, type /login, then send the card again.';
-  await update(conf, task.id, r.ok ? 'done' : 'failed', { result: r.text.slice(0, 12000) });
+  await update(conf, task.id, r.ok ? 'done' : 'failed', { result: r.text.slice(0, 12000), session: r.session ?? null });
   log(`  ${r.ok ? 'done' : 'failed'}`);
 }
 
